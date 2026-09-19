@@ -1,7 +1,7 @@
 ---
 title: "给 Agent 的副作用上锁：计划冻结、fresh read 与验证回执"
 description: "模型说「写完了」不算数。我把 Agent 的外部写入收敛成一条可审计协议：dry-run 后冻结计划、写后推进 mutation epoch、fresh read 逐项对账，receipt 绑定 planHash。"
-pubDate: 2026-09-13
+pubDate: 2026-08-14
 tags: ["agent", "llm", "reliability", "idempotency"]
 cover: "https://bugyalu-1307401873.cos.ap-guangzhou.myqcloud.com/typora/plan-freeze-cover.png"
 ---
