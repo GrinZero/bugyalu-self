@@ -1,0 +1,214 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import PageHeader from "../../components/PageHeader.astro";
+import { education, experience, highlights, profile, skills } from "../../data/site";
+
+const levelColor = (level: string) =>
+  level.startsWith("A")
+    ? "text-accent border-accent/40"
+    : level.startsWith("B")
+      ? "text-mute border-line-strong"
+      : "text-faint border-line";
+---
+
+<BaseLayout title="关于 — Bugyalu" description={`${profile.name}：${profile.role}。技能树、个人亮点、兴趣与联系方式，以及 MoeGo、米哈游、腾讯三段经历。`}>
+  <section class="shell pb-24 pt-28 md:pt-36">
+    <PageHeader
+      eyebrow="About / the person"
+      title="热闹背后的那个人。"
+      description={`${profile.name} · ${profile.role}。${profile.availability}。`}
+    />
+
+    <div class="grid gap-4 md:grid-cols-3" data-reveal>
+      <div class="card p-6">
+        <p class="eyebrow mb-5">Contact</p>
+        <div class="space-y-3 text-sm">
+          <p class="flex items-center justify-between gap-3">
+            <span class="text-faint">Email</span>
+            <a class="text-mute underline decoration-line underline-offset-4 transition-colors hover:text-accent" href={`mailto:${profile.email}`}>{profile.email}</a>
+          </p>
+          <p class="flex items-center justify-between gap-3">
+            <span class="text-faint">GitHub</span>
+            <a class="text-mute underline decoration-line underline-offset-4 transition-colors hover:text-accent" href={profile.github} target="_blank" rel="noreferrer">@GrinZero</a>
+          </p>
+          <p class="flex items-center justify-between gap-3">
+            <span class="text-faint">Status</span>
+            <span class="text-accent">{profile.availability}</span>
+          </p>
+        </div>
+      </div>
+      <div class="card p-6 md:col-span-2">
+        <p class="eyebrow mb-5">下班之后</p>
+        <div class="grid gap-5 sm:grid-cols-3">
+          {
+            profile.interests.map((item) => (
+              <div>
+                <span class="text-2xl">{item.icon}</span>
+                <p class="mt-2.5 font-display text-[1.05rem] text-ink">{item.label}</p>
+                <p class="mt-1 text-sm leading-6 text-mute">{item.note}</p>
+              </div>
+            ))
+          }
+        </div>
+        <p class="mt-6 border-t border-line pt-5 text-sm leading-7 text-mute">
+          {profile.intro}
+        </p>
+      </div>
+    </div>
+
+    <div class="mt-16 grid gap-10 lg:grid-cols-[0.7fr_1.3fr]">
+      <div data-reveal>
+        <p class="eyebrow mb-4">Highlights</p>
+        <h2 class="font-display text-[1.5rem] leading-snug text-ink">为什么团队会记得我</h2>
+        <p class="mt-4 text-sm leading-7 text-mute">每一段经历里最值得留下的部分。</p>
+      </div>
+      <ul class="space-y-5">
+        {
+          highlights.map((item, i) => (
+            <li class="flex gap-4 border-l border-line-strong pl-5" data-reveal style={`--reveal-delay:${i * 50}ms`}>
+              <span class="text-lg leading-7">{item.icon}</span>
+              <div>
+                <p class="text-sm leading-7 text-mute">{item.text}</p>
+                {item.link && (
+                  <a
+                    href={item.link.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    class="mt-2 inline-flex items-center gap-1 rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 font-mono text-[0.65rem] text-accent transition-colors hover:bg-accent/20"
+                  >
+                    {item.link.label} ↗
+                  </a>
+                )}
+              </div>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+
+    <div class="mt-20 grid gap-10 lg:grid-cols-[0.7fr_1.3fr]">
+      <div data-reveal>
+        <p class="eyebrow mb-4">Skill tree</p>
+        <h2 class="font-display text-[1.5rem] leading-snug text-ink">技能树，诚实版</h2>
+        <p class="mt-4 text-sm leading-7 text-mute">A 是能扛事的领域，B 是落地过真实项目，C 是学过但已经还给老师。</p>
+      </div>
+      <div class="card overflow-hidden" data-reveal>
+        <ul class="divide-y divide-line">
+          {
+            skills.map((skill) => (
+              <li class={`flex flex-wrap items-center gap-x-5 gap-y-1 px-5 py-3.5 ${skill.retired ? "opacity-40" : ""}`}>
+                <span class={`w-11 shrink-0 rounded-md border px-2 py-0.5 text-center font-mono text-xs ${levelColor(skill.level)}`}>
+                  {skill.level}
+                </span>
+                <span class={`text-[0.92rem] font-medium text-ink ${skill.retired ? "line-through" : ""}`}>
+                  {skill.name}
+                </span>
+                <span class="ml-auto max-w-[16rem] text-right font-mono text-[0.68rem] leading-5 text-faint">
+                  {skill.note}
+                </span>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </div>
+
+    <div class="mt-24" data-reveal>
+      <p class="eyebrow mb-4">Work / field record</p>
+      <h2 class="font-display text-[1.5rem] leading-snug text-ink">三年，三个战场。</h2>
+      <p class="mt-4 max-w-3xl text-sm leading-7 text-mute">从腾讯的性能监控实习，到米哈游的埋点平台，再到 MoeGo 的 AI 工程、BFF 与全链路性能治理。</p>
+    </div>
+
+    <div class="relative mt-12 space-y-14 before:absolute before:bottom-0 before:left-[5px] before:top-2 before:w-px before:bg-line md:space-y-20">
+      {
+        experience.map((job, i) => (
+          <article class="relative pl-8 md:pl-12" data-reveal>
+            <span class={`absolute left-0 top-2.5 h-[11px] w-[11px] rounded-full border-2 ${i === 0 ? "border-accent bg-accent/30" : "border-line-strong bg-bg"}`} />
+
+            <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+              <h3 class="font-display text-[1.7rem] leading-snug text-ink md:text-[2.1rem]">{job.company}</h3>
+              <p class="text-sm text-mute">{job.role}</p>
+              <span class="font-mono text-xs text-accent">{job.period}</span>
+            </div>
+            {job.intro && <p class="mt-4 max-w-3xl text-sm leading-7 text-mute">{job.intro}</p>}
+
+            <div class="mt-6 space-y-4">
+              {job.sections.map((section) => (
+                <section class="card p-6 md:p-7">
+                  <div class="flex flex-wrap items-baseline gap-x-4 gap-y-2">
+                    <h4 class="font-display text-[1.15rem] text-ink">
+                      <span class="mr-2">{section.icon}</span>{section.title}
+                    </h4>
+                    {section.stack && <span class="font-mono text-[0.68rem] text-faint">{section.stack}</span>}
+                  </div>
+                  {section.intro && <p class="mt-3.5 max-w-3xl text-sm leading-7 text-mute">{section.intro}</p>}
+
+                  <div class="mt-4 space-y-4">
+                    {section.blocks.map((block) => (
+                      <div class="border-l border-line-strong pl-5">
+                        {block.lead && (
+                          <p class="font-medium text-ink">
+                            {block.lead}
+                            {block.oss && (
+                              <a
+                                href={block.oss.href}
+                                target="_blank"
+                                rel="noreferrer"
+                                class="ml-2.5 inline-flex items-center gap-1 rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 align-middle font-mono text-[0.65rem] text-accent transition-colors hover:bg-accent/20"
+                              >
+                                {block.oss.label} ↗
+                              </a>
+                            )}
+                          </p>
+                        )}
+                        {block.text && (
+                          <p class="mt-1.5 text-sm leading-7 text-mute">
+                            {block.text}
+                            {!block.lead && block.oss && (
+                              <a
+                                href={block.oss.href}
+                                target="_blank"
+                                rel="noreferrer"
+                                class="ml-2 inline-flex items-center gap-1 rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 align-middle font-mono text-[0.65rem] text-accent transition-colors hover:bg-accent/20"
+                              >
+                                {block.oss.label} ↗
+                              </a>
+                            )}
+                          </p>
+                        )}
+                        {block.children && (
+                          <ul class="mt-3 space-y-2">
+                            {block.children.map((child) => (
+                              <li class="relative pl-5 text-sm leading-7 text-mute before:absolute before:left-0 before:text-accent before:content-['—']">
+                                {child}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </article>
+        ))
+      }
+
+      <article class="relative pl-8 md:pl-12" data-reveal>
+        <span class="absolute left-0 top-2.5 h-[11px] w-[11px] rounded-full border-2 border-accent bg-accent/30"></span>
+        <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <h3 class="font-display text-[1.7rem] leading-snug text-ink md:text-[2.1rem]">Education</h3>
+        </div>
+        <div class="card mt-5 p-6 md:p-7">
+          <div class="flex flex-wrap items-baseline justify-between gap-3">
+            <div>
+              <p class="font-display text-[1.15rem] text-ink">{education.degree}</p>
+            </div>
+            <span class="font-mono text-xs text-accent">{education.period}</span>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+</BaseLayout>

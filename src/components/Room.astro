@@ -1,0 +1,6 @@
+<canvas id="room-canvas" class="pointer-events-none fixed inset-0 h-full w-full" aria-hidden="true"></canvas>
+<script>
+  import { initRoom } from "../scripts/room";
+  const el = document.getElementById("room-canvas");
+  if (el instanceof HTMLCanvasElement) initRoom(el);
+</script>

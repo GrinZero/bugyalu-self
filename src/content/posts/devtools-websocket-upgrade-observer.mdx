@@ -1,0 +1,41 @@
+---
+title: "WebSocket 观测三段论：client、server、inspector 各管一段"
+description: "ws 库和手写 upgrade 都走 HTTP/1.1 Upgrade 后直接操作裸 socket，Undici hook 覆盖不到——给它们做观测，得拆成三个阶段分别说服。"
+pubDate: 2026-09-15
+tags: ["WebSocket", "CDP", "Node.js", "HTTP Upgrade"]
+cover: "https://bugyalu-1307401873.cos.ap-guangzhou.myqcloud.com/typora/ws-three-stages.png"
+---
+
+给 Node 的 WebSocket 做 DevTools 观测，我最先在 userland 里干过一遍：认出 `Upgrade: websocket` 之后，监听 upgrade 拿到的 TCP socket——入站靠 socket 的 data，出站包装 `socket.write`，拿到二进制帧后借 `ws` 库的 `Receiver` 当 parser（那个 `GET_INFO → GET_PAYLOAD_LENGTH_16 → GET_PAYLOAD_LENGTH_64 → GET_MASK → GET_DATA` 状态机），最后翻译成 `webSocketFrameReceived` / `webSocketFrameSent` 推给 DevTools。
+
+顺带说帧本身长什么样：头两个字节就能拆出 `FIN`、`RSV`、`opcode`、`mask` 标志和 `payload length` 的初值，后面再按长度位扩展出 mask key 和真正的 payload。所以「监听 socket」只解决了十分之一的问题——拿到的是二进制帧流，不解析就没有 DevTools 能看懂的「消息」。
+
+能用，但这是野路子。等我把目光转向 Node core，才发现真正的难点不是「解析帧」，而是「在哪一层、用什么姿势碰到这条连接」。
+
+内建 `WebSocket` / `WebSocketStream` 好办，Undici 的 sender/receiver 是现成的 frame 入口。但 `ws`、socket.io、手写 `http.request().on('upgrade')` 全是另一码事：它们走 HTTP/1.1 Upgrade，拿到 socket 之后就跟 HTTP 栈分手了，Undici hook 根本看不见它们。要覆盖这一大片，得在 HTTP upgrade 的交接点旁路观察。
+
+当时我把自己的 userland 实现和 Node core 摊开来对照了一遍，结论是「中等可行，但必须分三段收口」——因为 client、server、inspector 各自的麻烦完全不是一个物种，混在一起做，挂了都不知道挂哪。
+
+第一段 client。`_http_client.js` 里 101 交换完成、socket 移交出去的位置很稳定，是天然的挂钩点。但细节一坨：upgrade 响应可能带着 `head`（服务器在 101 响应里提前推来的第一段 socket 数据），这段必须先喂给 parser，漏了它第一条消息就是乱码；socket 数据可能跨 chunk、一个 chunk 塞多个 frame；客户端发出去的帧按 RFC 是带 mask 的，得 unmask 才能还原 payload；还有 continuation 分片和 close 控制帧。最要命的是姿势——不能直接 `socket.on('data')`，那会把流掰进 flowing mode，改变用户库眼里的世界。得走更底层的 read/push 旁路。
+
+第二段 server。别以为 server 侧对称。`upgrade` 回调给你的 `socketOrStream` 不保证是裸 socket，可能是 `UpgradeStream` 包装；还可能带着没读完的 body。最骚的约束是：你不能图省事在内部多挂一个 `upgrade` listener——`listenerCount('upgrade')` 一变，`shouldUpgradeCallback` 的语义就变了，等于为了观察病人把病人的心电图改了。
+
+第三段 inspector/CDP。也不是简单转发：要动 `domain_network.pdl`、C++ 的 `network_agent`、`lib/inspector.js` 的导出和 `inspector_js_api.cc`，再补桥接测试。对外投影只给 `payloadData/opcode/mask` 这个最小集——`fin/compressed/payloadLength` 这些 parser 细节留在内部 diagnostics，不变成公共契约。
+
+三段共同遵守一条铁律：不公开 raw socket 或 raw chunk。一旦把可变 socket 对象和 chunk 边界暴露给订阅者，你就把实现细节冻成了 API，下游还要替你承担 mask、分片、压缩的解析风险。core 内部解析完，对外只发 parsed frame。
+
+落到 diagnostics 上，新增的是几条分工明确的 channel：`http.client.request.upgrade`、`http.server.request.upgrade` 管握手交接，四个方向的 `websocket.*.frame*` 管收发帧。内建 WebSocket 那条路也有对称设计：Undici 侧在 sender 组帧前、receiver 解出 payload 后分别发 `undici:websocket:framesent` / `framereceived`，payload 里带 `opcode`、`fin`、`masked`、`compressed`、`payloadLength`——内部信息可以比 CDP 丰富，但丰富的那部分留在 core 里，不往外漏。
+
+然后是那个让我印象最深的 bug。三阶段跑通后用户发来截图：同一个 upgrade，DevTools 里两行——一行 101 的 HTTP 请求，一行 `ws://` 的连接。根因很直白：bridge 同时发了普通 HTTP 生命周期（`requestWillBeSent → responseReceived → loadingFinished`）和 WebSocket 专属事件，DevTools 忠实地全画了。修在源头：request created 时识别 `Upgrade: websocket`，标记这条连接，跳过普通 HTTP 三事件，只走 WebSocket 流；`webSocketCreated.url` 也别忘映射成 `ws://` / `wss://`。
+
+![一条连接两行记录的修复](https://bugyalu-1307401873.cos.ap-guangzhou.myqcloud.com/typora/ws-double-entry.png)
+
+有人问过为什么不在 DevTools 前端去重——那是把协议错误推给消费者，你面向的又不止一个前端，别的 CDP client 照样收到重复。重复只能在事件源消灭。
+
+也盘点过落选方案：一次性 client/server/inspector 全上，调试面太大，挂了都不知道挂哪段；只挂 `socket.on('data')`，会动流语义；直接公开 raw socket，上面说了，等于把 parser 风险外包。Undici-only hook 最稳但覆盖面窄，全局 hook `net.Socket` 识别所有 WS 则误判、性能、TLS/HTTP2 的坑能写一本书。
+
+这套东西最后落在 `lib/internal/http_websocket_observer.js`，加上 `_http_client.js`、`_http_server.js` 的接入，CDP 侧一路从 pdl 铺到 JS API，测试单开 `test-inspector-network-http-upgrade-websocket.js`。`make -j8 node` 的增量构建等得人心平气和。
+
+也有没盖到的地方得认账：这套 observer 只管 HTTP/1.1 upgrade，HTTP/2 CONNECT、native addon 走的 transport、各种 WebSocket 扩展（压缩、分片的极端形态）都不在承诺范围内。用户态 demo 里 `opcode` 写死成 1 只对文本消息成立，真拿二进制帧和 permessage-deflate 去砸，还得再单独立项验证。
+
+教训只有一句：底层观测的第一风险从来不是「parser 写不写得出来」，而是「你有没有改变被观测者的语义」。observer 做得好，被观测者应该完全不知道你在看。

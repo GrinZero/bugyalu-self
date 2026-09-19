@@ -1,0 +1,31 @@
+---
+title: "node-network-devtools"
+tagline: "让 Node.js 拥有浏览器级的网络调试能力"
+description: "在 Node.js v22.6.0 之前，--inspect 打开的 Chrome DevTools 不支持 fetch / XHR / WebSocket 调试。我基于 CDP 协议重建了服务端网络栈，把它做成了开源库——后来成为 Node 官方实验性网络调试能力的基础实现。"
+icon: "🍏"
+kind: "open-source"
+period: "2024.6 — 至今"
+accent: "mint"
+tags: ["Node.js", "CDP", "DevTools", "开源"]
+order: 1
+link: "https://github.com/GrinZero/node-network-devtools"
+featured: true
+---
+
+## 问题
+
+在 Node.js v22.6.0 之前，用 `--inspect` 打开的 Chrome DevTools 并不支持对 `fetch` / `XHR` / `WebSocket` 等网络请求的调试。前端工程师习以为常的 Network 面板，在服务端完全缺席——想看一个请求，只能打日志、抓包，或者猜。
+
+## 方案
+
+我基于 CDP（Chrome DevTools Protocol）以及对 `http` / `https` 底层包的解析，重建了网络协议层，实现了：
+
+- 完整的请求 / 响应信息采集
+- 调用堆栈还原
+- WebSocket 事件追踪
+
+并将其作为一个独立库开源。
+
+## 结果
+
+该方案后续成为 Node.js 官方实验性网络调试能力的基础实现，并在 v22.6.0 中正式落地——推动了 Node.js 在服务端网络调试可观测性上的一次重大升级。目前我也是 Node.js 的贡献者之一（PR 已合并，多个 review 进行中）。

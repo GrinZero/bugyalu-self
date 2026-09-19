@@ -1,0 +1,50 @@
+---
+import { getCollection, render } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+export async function getStaticPaths() {
+  const projects = await getCollection("projects");
+  return projects.map((project) => ({
+    params: { slug: project.id },
+    props: { project },
+  }));
+}
+
+const { project } = Astro.props;
+const { Content } = await render(project);
+
+const kindLabel = {
+  "open-source": "开源",
+  internal: "内部平台",
+  experiment: "实验",
+} as const;
+---
+
+<BaseLayout title={`${project.data.title} — Bugyalu`} description={project.data.description}>
+  <article class="shell pb-24 pt-28 md:pt-36">
+    <div class="mx-auto max-w-2xl">
+      <a href="/projects/" class="font-mono text-xs text-link transition-colors hover:text-accent">← 作品</a>
+      <div class="mt-12 flex items-start gap-4" data-reveal>
+        <span class="text-4xl leading-none">{project.data.icon}</span>
+        <div class="min-w-0">
+          <p class="eyebrow mb-3">{kindLabel[project.data.kind]}{project.data.period ? ` · ${project.data.period}` : ""}</p>
+          <h1 class="font-display text-[1.9rem] leading-snug text-ink md:text-[2.5rem]">{project.data.title}</h1>
+          <p class="mt-3 text-[0.95rem] leading-7 text-mute">{project.data.tagline}</p>
+        </div>
+      </div>
+      <div class="mt-8 flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-line py-3.5 font-mono text-xs text-faint" data-reveal>
+        {project.data.tags.map((tag) => <span>#{tag}</span>)}
+        {
+          project.data.link && (
+            <a href={project.data.link} target="_blank" rel="noreferrer" class="ml-auto text-link hover:text-accent">
+              源码 ↗
+            </a>
+          )
+        }
+      </div>
+      <div class="article-body mt-12" data-reveal>
+        <Content />
+      </div>
+    </div>
+  </article>
+</BaseLayout>

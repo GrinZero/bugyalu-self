@@ -1,0 +1,121 @@
+---
+title: "把 Node.js 请求塞进 Chrome DevTools：我是怎么给运行时当「口译」的"
+description: "node --inspect 打开的 DevTools 没有 Network 面板，于是我给 Node 写了一个 CDP Server，让它自己向 DevTools 汇报网络活动。"
+pubDate: 2026-09-13
+tags: ["CDP", "Node.js", "DevTools", "网络调试"]
+cover: "https://bugyalu-1307401873.cos.ap-guangzhou.myqcloud.com/typora/node-cdp-arch.png"
+---
+
+在 Node.js 里写爬虫和调第三方接口时，调试体验往往会从浏览器时代的「Network 面板伺候」直接退化成「`console.log` 算命」。
+
+这可不是修辞。调境外支付 API 的那周，我对着终端猜谜：请求发了没？重定向后 Cookie 还在吗？对方返回 402 是参数错误还是纯粹想收钱？要找答案只有一条路——在代码里插满 `console.log`，重启，继续猜。`headers` 打印一遍嫌不够，再加一行 `res.rawHeaders`；二进制响应是一堆乱码，就先 `toString('base64')` 再粘到解码网站。每改一次都要重启进程，而那个进程启动需要八秒。
+
+`node --inspect` 倒是能开 DevTools，但打开一看，Network 标签页压根不存在。官方提供的 V8 inspector 是个阉割版，允许断点，但不给看请求。V8 的 inspector 协议里压根就没有 Network 域——浏览器里的 Network 数据是由 Chromium 的网络栈上报的，跟 JS 引擎无关。Node 继承了 V8 的 inspector，自然也继承了这块盲区。
+
+我先去社区转了一圈，心想不至于没人受过这个罪。
+
+确实有，但全都是半截子。`node-inspector` 支持 Network，但只覆盖 Node 8 以下，上次更新是七年前——它辉煌的年代我还没开始写 JavaScript。`debugging-aid` 用 mitm 打印请求，终端输出，看十分钟眼睛先投降；`ndb` 是 Chrome 团队出品，断点体验一流，但干脆没有 Network 面板。GitHub 上 2016 年就有 issue 求官方支持，讨论到我动手那年还在讨论。
+
+真正给我启发的是 React Native DevTools：RN 的请求本质是移动设备发出去的，却能在桌面 DevTools 里调试——秘密就是 CDP（Chrome DevTools Protocol）。设备的流量都能演成浏览器流量，Node 的凭什么不能？
+
+---
+
+### 三条被否决的路
+
+方案选型先排除了三条路，每一条被否决的理由都值得咀嚼：
+
+* **网络代理**：起个本地 mitm 把 Node 流量倒一手。理论可行，实操劝退。HTTPS 中间人意味着要造本地证书、改 Node 的 CA 信任、占额外端口，还可能跟系统已有代理打架——尤其在调境外 API 的时候，链路中间再加一层玄学，出了问题你都不知道该怀疑代码还是怀疑代理。代理方案的本质是「在链路上做手脚」，而我想要的是「在进程里开天眼」。
+* **给各请求库写包装器**：`axios` 有 interceptor，`got` 有 hooks，`node-fetch` 有 wrapper。各家的拦截钩子长得都不一样，挨个适配过来天都黑了。更要命的是这是个永远追不完的长尾：今天 `axios`，明天 `undici`，后天某个库内部直接走 `net.Socket`。用户装了工具还得先看兼容性列表，那这工具就失败了。
+* **`node:async_hooks`**：理论上很美，运行时原生提供的生命周期钩子，不用 patch 任何东西。但当时它还是实验特性，挂在 Experimental 警告里随时可能变脸——而且说实话，我把第一版代码写完半周后才知道有这东西。
+
+最后选的是最粗暴也最管用的路：直接猴子补丁（monkey-patch）包装 `http`/`https` 模块的 `request`。
+
+这条路能赢，取决于 CommonJS 一个不太体面的特性：`require` 进来的模块对象是可以改的。`http.request` 不是神圣不可侵犯的内置函数，它只是模块对象上一个普通的属性，赋值即可覆盖。Node 18 之前，九成九的请求库都只是这两原生包的套壳，最终都要落到 `http.request`。你在地基上动手，楼上的每一层都自动被你看光。再代理一层 `ClientRequest.write` 和 `ClientRequest.end`，POST body 也到手了。
+
+![所有的路都通向 http.request](https://bugyalu-1307401873.cos.ap-guangzhou.myqcloud.com/typora/http-request-funnel.png)
+
+代价是一个硬要求：补丁必须比三方库先执行。否则人家模块加载时早把原始 `request` 的引用揣进兜里——你改的是模块对象的属性，人家手里攥的是旧函数本体，你改了个寂寞。所以用法上要求 `register()` 在应用入口第一行调用，或者干脆 `node -r` 预加载。这也是后来 Node core 做 Network Inspector 时不走这条路的根本原因：core 可以改 `lib/_http_client.js` 本体，天然保证顺序，用户态只能靠纪律。
+
+ESM 下这条路还走不通——模块导出对象是只读的，`http.request = proxy` 直接抛出 `TypeError`。所以还得单独处理 `globalThis.fetch`，`undici` 则给了个可选开关，默认关着：`undici` 是 Node 自己内置的 fetch 实现，patch 它要动更深的地方，先保守一点。你看，连「优雅降级」都是补丁摞补丁。
+
+---
+
+### 我不当观众，我当 Chrome
+
+拦到请求只是上半场。真正的题眼是：我要当的不是 CDP Client，是 CDP Server。
+
+`chrome-remote-interface`、`puppeteer` 这类库全是 Client——它们相当于「坐在 DevTools 前的你」，发命令、收事件。但你能手动往 Network 面板里塞一条请求吗？不能。CDP 协议里没有任何一个命令叫 `Network.addFakeRequest`，因为面板的数据方向是写死的：只有被调试的目标（浏览器、页面、Node 进程）能上报网络事件，Client 只能查询。
+
+所以我需要的不是操作 DevTools，是扮演 DevTools 背后那个源源不断吐数据的 Chrome：自己起一个 WebSocket server，让 DevTools 前端主动连上来。
+
+![你不是在操作 DevTools，你是在扮演 Chrome](https://bugyalu-1307401873.cos.ap-guangzhou.myqcloud.com/typora/cdp-who-plays-chrome.png)
+
+DevTools 前端本质上是个网页，它不挑食，`ws=` 参数指向谁它就连谁。于是 `devtools://devtools/bundled/inspector.html?ws=localhost:5270` 一打开，面板直接把我这台冒牌 Chrome 当成真命天子，连 Chromium 都不用内置——`puppeteer` 要拖一百多 MB 的浏览器，我这个包只多一个 `ws` 依赖，包体积省了一笔巨款。
+
+---
+
+### 协议是逆向出来的
+
+协议细节官方文档写得比较意识流，最可靠的教材是 DevTools 自己的 Protocol Monitor：设置里打开 Experiments，盯着真实浏览器收发一次请求，把协议流量录下来照抄。
+
+一次请求大约六条消息，去掉两个 ExtraInfo（`requestWillBeSentExtraInfo` / `responseReceivedExtraInfo`），骨架是四条——`requestWillBeSent`、`responseReceived`、`dataReceived`、`loadingFinished`。每条都靠同一个 `requestId` 串起来，少一条，面板就缺一块拼图。
+
+![一次请求 = 四条事件 + 一次回话](https://bugyalu-1307401873.cos.ap-guangzhou.myqcloud.com/typora/cdp-event-sequence.png)
+
+然后我就见识了 DevTools 的沟通哲学：它从不报错，只会用行为艺术回应你。
+
+只发 `requestWillBeSent`，面板上出现一行请求，永远 pending，像一封寄出去就没有下文的信。没有警告，没有报错，它就静静地 pending 给你看。补上 `responseReceived`，状态变 200 了，但还 pending，Size 显示 0B——它在等 `dataReceived` 和 `loadingFinished` 收尾。这两个事件里的字段还得分清：`dataLength` 是解码后的大小，`encodedDataLength` 是线上实际传输的，填反了 Size 列就开始说胡话。
+
+最阴间的是响应体。四条全发完，点开 Response 一片空白。查半天才明白：body 不在事件流里。事件流只报「数据来了」和「来了多少」，body 本体是按需取货——DevTools 会在你点开 Response 标签时，主动发一个 `Network.getResponseBody` 请求过来，带着它自己的 message id，你得接住、按 id 回 `{ body, base64Encoded }`。这个「Server」不是单向广播，还得会回话。
+
+body 还埋着第二个坑：线上回来的多半不是原文，是 gzip、br 或者 deflate 压缩过的字节流。DevTools 期待的是解压后的内容，而 `http` 模块原生不解压——把压缩字节原样上交，面板就给你表演一屏乱码。所以要自己看 `content-encoding` 决定接哪根解压管，接完还得记住：刚才说的 `dataLength` 报解压后的尺寸，`encodedDataLength` 报线上字节数，两个口径一个都不能错。二进制资源同理，得先判断该不该 `base64Encoded`，判断错了图片预览就变成一串天书。
+
+<video src="https://bugyalu-1307401873.cos.ap-guangzhou.myqcloud.com/typora/cdp-flow-anim.mp4" autoplay loop muted playsinline />
+
+另外，`timestamp` 单位是秒，不是毫秒。这个 bug 是后来有人开 issue 才发现的——在此之前，我的每个请求看起来都持续了五十年。
+
+---
+
+### Sources 面板是扫磁盘扫出来的
+
+Network 通了之后我贪心地盯上了 Initiator：面板里每条请求都应该能跳回发起它的那行代码。
+
+难点在于 Initiator 里的栈帧需要 `scriptId`，而 `scriptId` 正常是 V8 编译脚本时分配的——我的冒牌 Chrome 没有 V8，只有一堆文件。DevTools 的 Sources 面板期待先收到 `Debugger.scriptParsed` 事件来建立脚本列表，用户点栈帧时再发 `Debugger.getScriptSource` 要源码。
+
+我的解法非常不体面但极其有效：遍历 `process.cwd()` 的磁盘目录，跳过 `node_modules`，给每个 `.js`/`.ts` 文件编一个递增的假 `scriptId`，建一张 `file:// URL ↔ scriptId` 的双向映射表，然后一口气把 `scriptParsed` 全发出去。栈帧里的 `url` 对上了表，Initiator 跳转就通了。用户点文件，`getScriptSource` 问我要源码，我就地 `readFileSync` 读给它。
+
+sourcemap 支持也是同一路数：DevTools 要 `sourceMapURL`，我就读每个文件最后两行，正则抠 `sourceMappingURL=`，是 `data:` 开头的直接用，是相对路径的就拼成 `file://` 交差。
+
+这套「伪造脚本宇宙」的做法后来成了我在 Node core PR 里被引用最多的反面教材——用户态可以这么野，core 里脚本列表应该直接问 V8 要，人家本来就知道每个 `scriptId`。但当时只有一个想法：能跳就行。
+
+---
+
+### 调试器自己也要有人伺候
+
+第一版跑通后我把 CDP Server 放在用户主进程里，很快尝到苦果。
+
+一是调试代码污染业务进程：拦截器、协议序列化、body 缓存全住在应用里，内存和行为都不再干净。二是 nodemon 每热重启一次，业务进程死一次，DevTools 的 WebSocket 连接就断一次——你改一行代码，面板跟着殉情。
+
+拆到独立进程是后来的事：`register()` 时 `fork` 一个子进程专门跑 CDP Server，主进程只留一层薄壳负责把请求事件 IPC 过去。业务重启不影响面板，面板崩了也不拖业务下水。
+
+然后我又给这个调试进程本身写了套保姆逻辑：`uncaughtException` 和 `unhandledRejection` 被抓到不直接死，而是随机等 10 到 110 毫秒再重启——加抖动是怕 DevTools 那边刚好在同一拍重连撞上；三十秒内重启超过五次就彻底退出，免得失控的调试工具反过来吃掉 CPU。一个观察别人的工具，先得学会别把自己作死。
+
+---
+
+### 交付的四道验收
+
+发布环节也给我上过一课，而且学费是 CI 给的。
+
+本地 `pnpm build` 通过、Git tag 打了、npm tarball 也生成了，我一度以为发版稳了——然后 `npm publish` 甩给我一个 404。查下来发现：本地 build 成功、Git 交付成功、tarball 生成成功、registry 授权成功，是四件要分开验收的事，前面全绿不代表最后一环有权限。tarball 躺在 `dist/` 里不会自己上架，它只会给你一种「事情办完了」的幻觉。
+
+还有个更隐蔽的坑在构建声明：类型检查的 `tsconfig` 一开始没隔离测试文件，`*.test.ts` 里的类型错误能把发布构建卡死——测试代码写野一点没事，但它不该参与产物验收。给构建单开一个 `tsconfig.build.json`，把测试文件排除在外，世界清净了。
+
+---
+
+### 后来：从 userland 到 Node core
+
+再后来官方认真做起了 Network Inspector（PR #53593），我在下面系统分享了拦截、解压、Initiator 这些经验，PR 作者还邀请继续提供建议；自己提交的 absolute URL 修复（PR #62955）也真的进了 Node 主干。
+
+但两边的设计哲学越来越清楚：monkey-patch、另起 CDP server、扫磁盘伪造 `scriptId`，这些玩法在用户态可以放飞——反正炸的是自己的工具，用户随时可以关掉它。进 Node core 就得换成正装：数据走 `diagnostics_channel` 发布，传输复用已有 inspector 的 WebSocket transport，事件顺序和字段语义倒是可以照抄我的实验结论。Userland 负责验证「这件事值得做」，core 负责把它做得不烫手。
+
+回头想想，这个项目最反直觉的一点是它的名字：`node-network-devtools` 里没有一行代码在「用 DevTools」，全在「装 DevTools 的数据源」。工具不给你想要的能力时，还有一个思路：成为工具的后端。

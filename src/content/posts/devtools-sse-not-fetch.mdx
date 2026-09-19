@@ -1,0 +1,97 @@
+---
+title: "SSE 不是 Fetch：EventSource 在 DevTools 里的分类陷阱"
+description: "Node 认得 text/event-stream 这个 mimeType，却把它硬编码成 Fetch 资源——分类错了，逐消息可见性更是无从谈起。"
+pubDate: 2026-09-16
+tags: ["SSE", "EventSource", "CDP", "DevTools"]
+cover: "https://bugyalu-1307401873.cos.ap-guangzhou.myqcloud.com/typora/sse-cover.png"
+---
+
+前阵子在 Node core 的 Network Inspector 上做 SSE 支持评估，先跑了个最小实验：起一个 `text/event-stream` 的接口，用 DevTools 看一眼。结果很微妙——`responseReceived` 里 `mimeType` 明明白白是 `text/event-stream`，请求的 `Accept` 头也对，但 `type` 字段赫然写着 `Fetch`。
+
+也就是说，Node 认得这是一个 SSE 响应，却给它发了张 Fetch 的身份证。这就好比机场安检扫出了你的护照信息，然后在登机牌上给你打印了别人的名字——数据都对，归类全错。
+
+打开 `lib/internal/inspector/network_undici.js` 一看，`type` 是硬编码的，根本没看 mimeType 的脸色。而在 DevTools 的世界里，资源类型不是标签装饰：它决定这条请求进哪个过滤器、有没有 EventStream 页签、以及面板该怎么理解「这条连接为什么一直不结束」。一个被错标成 Fetch 的 SSE 连接，就像拿快递柜的取件码去开别人家的门——号码是真的，门不是。
+
+更要命的是消息层。浏览器里 EventSource 连接是有 EventStream 页签的，每条服务端推送都是一行可点开的记录——`event:`、`data:`、`id:` 分得清清楚楚，时间倒序排好，像一张消息流水账。这张账在调试时的价值是实打实的：服务端推没推、推了几次、`id:` 断没断、重连后续没续上，一眼就能对出来。而 Node 当时的 inspector 连这个事件的协议定义都没有：`domain_network.pdl` 里翻不出 `Network.eventSourceMessageReceived`，`network_agent.cc` 自然也无事可发。SSE 在 DevTools 里的处境就是：一行永远 pending 的 Fetch，消息全靠脑补。
+
+这个差距用一句话说就是：浏览器把 SSE 当成「会持续产出消息的连接」，Node inspector 把它当成「一直不回文件的请求」。同一个协议，两种世界观。
+
+## 两层能力，不是一件事
+
+所以这件事其实是两层能力的叠加：第一层是「分类正确」——`text/event-stream` 的响应就该是 `EventSource` 资源类型；第二层是「逐消息可见」——每条已解析的服务端消息，挂在同一个 requestId 下作为独立事件发出去。只修第一层是身份证更正，两层都修完才是功能。
+
+方案最后收敛成三个阶段，每个阶段只说服一件事。
+
+第一阶段只做分类：响应头确认 `text/event-stream`，就把 `kResourceType` 选成 `EventSource`。不碰 parser，不碰协议事件。这是最便宜的 MVP，但也只是个身份证更正——面板归类对了，消息还是看不见。
+
+第二阶段做内建 `EventSource` 的逐消息事件。关键姿势是「在已解析出完整消息的位置发 diagnostics」：Undici 自己的 `EventSourceStream` parser 已经处理了 BOM、CRLF、多行 `data:`、`retry` 和 `lastEventId` 继承，消息在它手里成形，语义最干净。桥接层再把这些消息挂上同一个 requestId，投影成 CDP 事件。
+
+这一阶段要动的东西比想象多，得科普一下 Node inspector 加一个新协议事件要过的四道门：先在 `src/inspector/domain_network.pdl` 里定义事件形状（这是协议层的户口本）；再在 `network_agent.cc` 里写对应的 `emit` 入口和参数解包；然后在 `lib/inspector.js` 里把这个方法挂到 JS 侧暴露名单——对，PDL 生成的东西不会自动出现在 JS API 里，这层是手工维护的，漏了它协议里明明有的事件在 JS 里就是查无此人；最后还要补 `test-inspector-emit-protocol-event*.js` 那组参数校验测试。四层各管一段，漏哪一层都到不了用户手里。
+
+第三阶段才是硬骨头：普通 `fetch()` 拿到的 `text/event-stream` 流。它没有内建 parser 替你组装消息，得自己找「解压后的正文流」这个语义边界，再谈解析——而且当时这个稳定 hook 的位置还没有完全敲定，如果真的只能拿到压缩前的 raw chunk，整条方案还得回炉。内建 EventSource 和普通 fetch SSE 共享一部分 Undici 路径，但消息解析层和解码后流语义不一样，这就是为什么不能一锤子做完：分类、协议扩展、解压语义、长连接 buffering 搅在一起，出来的只能是浆糊。三条链各有各的死法，捆在一起上线就是三场连环车祸。
+
+## 落地过程：Phase 1 就踩了三脚泥
+
+第一阶段听起来是「改一行三元表达式」的量级，实际踩了三脚泥。
+
+第一脚是测试基建。现有 fetch inspector 测试里有个 HTTPS 自签证书用例，靠 `setGlobalDispatcher(new EnvHttpProxyAgent(...))` 绕过证书校验，在我这版构建上死活不生效。想换成显式传 `undici.Agent`，发现 `internal/deps/undici/undici` 根本不导出 `Agent`——只有 `EnvHttpProxyAgent` 一个独苗。最后的解法土得掉渣但有效：测试级环境变量 `NODE_TLS_REJECT_UNAUTHORIZED=0`，和仓库里其他 HTTPS 测试一个路数。改测试基建花的功夫比改分类逻辑多，这在 Node core 里是常态，不是意外。
+
+第二脚是经典幻觉：改完 `lib/internal/*.js` 跑测试，行为纹丝不动——因为 `out/Release/node` 还是旧 snapshot，新 JS 根本没进二进制。`make -j8 node` 增量构建伺候。这条教训后面还会复发一次，先记着。
+
+第三脚是好事：协议层其实早就预留了 `kResourceType.EventSource` 这个枚举，Phase 1 真的只是在 `onClientResponseHeaders()` 里按 mimeType 做个选择题。底层早就知道答案，只是没人问它。这一阶段的测试也按同样思路拆：普通 fetch 响应断言还是 `Fetch`，SSE 响应断言 `EventSource`，内建 `EventSource` 在正确和错误 `Content-Type` 下分别落到两种类型——每个分支各配一条用例，不许互相掩护。
+
+## 为什么不能在 raw chunk 上偷懒
+
+评估时也认真考虑过走捷径：在 `undici:request:bodyChunkReceived` 这种靠近网络的插点上直接解析 SSE。否了，因为 raw chunk 会骗你两次。
+
+第一次是压缩。`bodyChunkReceived` 拿到的可能是 gzip/br 压缩前的字节——连 `event:` 这几个字符都还不存在，你解析个什么。
+
+第二次是边界。TCP 分片不看 SSE 的脸色：一条 `event: price\ndata: {...}\n\n` 可能横跨三个 chunk，也可能一个 chunk 里塞了三条消息。chunk 边界和消息边界，从来就不是一回事。
+
+![SSE 消息的语义边界在哪一层才存在](https://bugyalu-1307401873.cos.ap-guangzhou.myqcloud.com/typora/devtools-sse-not-fetch-pipeline.png)
+
+所以正确姿势只有一个：等 Undici 把字节变成消息，再伸手。fetch 侧的落点最后定在「解压后的 body 流」上——gzip/deflate 已经解掉，chunk 还没被当成文本，在这里挂一个轻量 diagnostics tap，然后直接复用 `EventSourceStream` 做 parser。语义和用户实际看到的东西完全一致，`id:` 继承、CRLF、多行 `data:` 这些边界行为白捡。
+
+## 真正的地狱：消息发出去了，条数恒为 0
+
+Phase 2/3 实现期最磨人的不是协议扩展，而是两次「消息计数恒为 0」。不报错、不超时、不崩溃，就是干干净净的 0——这种失败最诛心，因为没有任何异常告诉你往哪看。
+
+第一个 0：改了 `deps/undici/src/**` 的源码，重建，跑测试，0 条消息。查到最后发现 Node 实际运行的是 bundled 产物 `deps/undici/undici.js`——我改的是「源码的源码」，真正跑的是另一份文件。把同样的补丁补进 bundled 文件，消息才出现。在 Node 仓里改 vendored 依赖，永远要问一句：跑的是哪一份？
+
+第二个 0 更隐蔽。bundled 补丁也进去了，还是 0 条。写了个最小脚本直接订阅 `diagnostics_channel` 绕过 inspector 层，才发现 `undici:eventsource:message` 确实发出来了——但 requestId 对不上。根因：fetch 链路在真正发请求前会 `cloneRequest()`，`request:create` 诊断事件拿到的是 clone，`kInspectorRequestId` 被写在了克隆体上；而 EventSource 后续发消息时读的是原始 inner request。身份证发给了替身，正主裸奔。修法是补一条 back-reference：clone 记住原始 request，inspector requestId 稳定落到 EventSource 真正持有的那个对象上。
+
+![requestId 挂在了克隆体上](https://bugyalu-1307401873.cos.ap-guangzhou.myqcloud.com/typora/devtools-sse-not-fetch-requestid.png)
+
+顺手还修了一串小毛病：`EventSourceStream` 结束时走一次 `push(null)`，被 fetch-side override 当成消息对象读了——得处理终止信号；fetch-side parser 的 `lastEventId` 初始值漏设成 `''`，普通消息全带着 `undefined` 的 id；`request.eventSource` 标记在 clone 后丢失，内建 EventSource 会被 fetch 路径误判重复处理，得改认 `request[kOriginalRequest]` 上的 marker。
+
+还有个体感很强的细节：测试不是「失败」，是「卡住」。因为构造的 SSE payload 最后一条消息少了一个空行分隔，`EventSourceStream` 会一直等下一次换行确认事件结束——parser 没有错，是测试数据没把话说完。后来把「无期限等待」改成「超时失败并带上收到的事件数」，这种测试才有资格进 CI。压缩用例还复发过一次同样的病：gzip 解压链路没断，纯粹是 body 末尾又少了个空行，按 SSE 语义那条消息根本不该 dispatch。
+
+验收环节也没只靠自动化。最后准备了一份 `koa-sse-inspect-test.js` 独立脚本，起三条可以手点的路由：`/eventsource` 触发内建 EventSource，`/fetch` 触发全局 `fetch()` 读 SSE，`/undici-fetch` 走 `undici.fetch()`，再加一条 `/source` 当本地 SSE 源——里面塞了多条消息、自定义 `event:` 名、跨 chunk 边界和 `id` 继承，把难伺候的场景一次摆齐。跑法就是 `./node --inspect=0 --experimental-network-inspection --experimental-eventsource --expose-internals koa-sse-inspect-test.js`，然后开 DevTools 挨个戳路由看 EventStream 页签。测试框架断言的是「事件发了」，人肉点一遍确认的是「面板真的画出来了」——这两件事从来不能互相替代。
+
+## PR 裁军：功能做完了，还得收着上
+
+三阶段全跑通之后，第一个 PR 反而做了次大裁军：只保留 `fetch()` + `http/https` 的公开面。内建 EventSource 专属 producer、phase1/phase2 测试、`--experimental-eventsource`、`--expose-internals`、`undici.fetch()` 的公开验证，统统收进 `stash@{0}`（名字叫 `sse-network-pre-trim-full-scope`，很有挽联气质）。
+
+为什么自砍？因为 public surface 是合同，不是清单。首版 PR 里出现 EventSource producer，reviewer 就会默认你在承诺内建 EventSource 支持——而你还没准备好为它的全部边界负责。例外只留一个：`eventsource.js` 里保留一行最小 internal marker，专门防止 fetch 检测路径把内建 EventSource「意外纳入首版能力」——没有它，built-in EventSource 反而会被误伤进 PR 范围。
+
+裁军收尾还有一串小动作：测试文件从 `test-inspector-network-eventsource-phase3.js` 改名 `test-inspector-network-fetch-sse.js`，名字和范围对齐；删掉一个和 `startRequest()` 完全重复的 `startEventSourceRequest()` helper；文档表述从「built-in EventSource」收紧成「parsed SSE message」。最后落到分支 `feat/inspector-fetch-sse`，commit 信息 `inspector: add fetch sse network inspection`。
+
+## 长连接是特性，不是 bug
+
+还有个容易被忽视的问题：SSE 是长连接。它可能永远不触发 `loadingFinished`——这不是缺陷，是设计。所以 body buffering、`streamResourceContent`、`getResponseBody` 在连接还活着时的行为、取消和重连语义，全都要单独定义，不能套用普通请求那套「开始-传输-结束」的直觉。普通请求的世界里，「buffering 到结束再交付」是常识；SSE 的世界里这条常识直接失效——你要是把响应体攒到连接关闭才给，那等于攒到天荒地老。消息事件也不是发出去就完事：`lastEventId` 是跨消息持续演进的状态，断线重连后浏览器会拿它续上——这层语义如果投影时丢了，EventStream 页签就变成了一本撕掉页码的账。
+
+评估时摆过的备选方案也交代一下结局：
+
+monkey-patch 全局 `fetch`，照搬我 userland 工具的做法——快是快，但和 Node core 的架构、内建 EventSource、解压语义全都耦合得一塌糊涂，否了。userland 可以糙，糙在我自己的工具里，用户骂我可以卸；core 糙了糙在全世界跑 Node 的进程里，这个分寸感不能丢。
+
+在 `undici:request:bodyChunkReceived` 上统一解析——插点离网络最近，但拿到的可能是压缩态字节，消息边界还得自己重组，不作为默认方案。
+
+在解码后、已解析消息处发 diagnostics 再投影 CDP——和用户实际看到的消息语义一致，requestId 也能复用，推荐。代价是要为普通 fetch 找到稳定的「解压后」hook，这个点当时还没完全敲定。
+
+回头看，这套方案里最贵的设计决定其实不是技术选型，而是「分期付款」：一次性把分类、内建 EventSource、普通 fetch SSE 全做掉，听起来完整，实际上是三条链路同时变动——到时候消息少了，你都不知道该查分类、查 parser 还是查 requestId。拆成三阶段，每个阶段只新增一种失败模式，这才是它真正的工程价值。
+
+## 收尾
+
+这件事给我的启发是：协议分类从来不是小事。`type` 字段在协议里只是枚举值，但在调试器的产品语义里，它决定用户看到的整个世界。
+
+所以「先让分类对，再让消息可见」这个顺序不能反——三步倒着走，每一步都会变成救火。而比顺序更重要的教训是那条贯穿始终的暗线：在 Node core 里，「语义已经成立的层」才是观测该站的地方。chunk 不是消息，clone 不是正主，源码不是运行时——每一层都有自己的身份证明，看错了对象，你发的每一条 diagnostics 都是寄往空门的信。

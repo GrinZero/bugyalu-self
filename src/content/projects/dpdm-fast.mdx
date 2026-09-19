@@ -1,0 +1,25 @@
+---
+title: "dpdm-fast"
+tagline: "用 Rust 重写的代码静态依赖分析工具"
+description: "团队 Lint 流程里的 dpdm 循环依赖检测，随代码规模增长从几秒飙升到 1 分钟以上。我基于 Rust + swc 重写，把主仓检查耗时从 80s 压到 4.2s——近 20 倍提升，覆盖 99% 原有测试用例。"
+icon: "🦀"
+kind: "open-source"
+period: "2024.9 — 至今"
+accent: "coral"
+tags: ["Rust", "SWC", "CI", "开源"]
+order: 2
+link: "https://github.com/GrinZero/dpdm-fast"
+featured: true
+---
+
+## 问题
+
+团队原有的 Lint 流程依赖 dpdm 做循环依赖检测。随着业务代码规模持续增长，执行耗时从最初的几秒飙升到 1 分钟以上，严重制约 CI 效率与敏捷发布节奏。
+
+## 方案
+
+基于 Rust 和 swc 对 dpdm 进行重写。尽管当时我还是 Rust 初学者，但借助 AI 辅助，实现了高可读性、高性能的版本，并覆盖了 99% 的原有测试用例，确保迁移过程无缝稳定。
+
+## 结果
+
+主仓检查耗时从 1 分 20 秒优化到 4.2 秒，近 20 倍性能提升，显著加速了团队的开发与发布流程。

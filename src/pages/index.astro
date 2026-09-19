@@ -1,0 +1,169 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Room from "../components/Room.astro";
+import { now, profile, seriesOf } from "../data/site";
+import { getCollection } from "astro:content";
+
+const posts = (await getCollection("posts")).sort(
+  (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
+);
+const projects = (await getCollection("projects"))
+  .sort((a, b) => a.data.order - b.data.order)
+  .slice(0, 4);
+
+const series = seriesOf;
+
+const fmtDate = (d: Date) => `${d.getMonth() + 1}.${d.getDate()}`;
+
+const kindLabel = {
+  "open-source": "开源",
+  internal: "内部平台",
+  experiment: "实验",
+} as const;
+---
+
+<BaseLayout title={`Bugyalu — ${profile.name}`} description={profile.intro}>
+  <Room />
+
+  <!-- first screen: the room -->
+  <section class="relative z-10 flex h-[100svh] flex-col justify-end">
+    <div
+      class="pointer-events-none absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-bg via-bg/60 to-transparent"
+    >
+    </div>
+    <div class="shell relative pb-16 md:pb-24">
+      <p class="eyebrow" data-reveal>{profile.name} · {profile.role}</p>
+      <h1
+        class="mt-4 font-display text-[2.5rem] leading-[1.25] text-ink md:text-[3.4rem]"
+        data-reveal
+        style="--reveal-delay:90ms"
+      >
+        <span class="only-night">夜深了，进来坐坐。</span>
+        <span class="only-day">天亮了，进来看看。</span>
+      </h1>
+      <p
+        class="mt-4 max-w-md text-[0.9rem] leading-7 text-mute"
+        data-reveal
+        style="--reveal-delay:180ms"
+      >
+        <span class="only-night">桌上有热咖啡和没读完的书，窗外有星星。我把项目、笔记和正在形成的想法都堆在这里。</span>
+        <span class="only-day">阳光进屋了，咖啡还是热的。我把项目、笔记和正在形成的想法都堆在这里。</span>
+      </p>
+      <div
+        class="mt-8 flex items-center gap-5 font-mono text-[0.7rem] text-faint"
+        data-reveal
+        style="--reveal-delay:260ms"
+      >
+        <span class="inline-flex items-center gap-2">
+          <span class="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-accent"></span>
+          <span class="only-night">点一下台灯，天就亮了</span>
+          <span class="only-day">再点一下台灯，回到夜里</span>
+        </span>
+        <span aria-hidden="true">·</span>
+        <span>往下翻是笔记</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- everything below sits on solid ground -->
+  <div class="relative z-10 bg-bg">
+    <section class="shell pb-8 pt-16 md:pt-24">
+      <div class="flex items-baseline justify-between" data-reveal>
+        <h2 class="font-display text-2xl text-ink">
+          此刻<span class="ml-3 align-middle font-mono text-[0.68rem] tracking-[0.12em] text-faint uppercase">now</span>
+        </h2>
+        <span class="font-mono text-xs text-faint">更新于 {now.updated}</span>
+      </div>
+      <div class="mt-6 max-w-2xl space-y-4 text-[0.95rem] leading-8 text-mute" data-reveal style="--reveal-delay:80ms">
+        {now.paragraphs.map((p) => <p>{p}</p>)}
+      </div>
+    </section>
+
+    <section class="shell pb-10 pt-12">
+      <div class="flex items-baseline justify-between" data-reveal>
+        <h2 class="font-display text-2xl text-ink">
+          手记<span class="ml-3 align-middle font-mono text-[0.68rem] tracking-[0.12em] text-faint uppercase">field notes</span>
+        </h2>
+        <span class="font-mono text-xs text-faint">{posts.length} 篇</span>
+      </div>
+      <div class="mt-4">
+        {
+          posts.map((post, i) => {
+            const s = series(post.id);
+            return (
+              <a
+                href={`/writing/${post.id}/`}
+                class="group -mx-4 flex items-start gap-3.5 rounded-xl px-4 py-4 transition-colors duration-200 hover:bg-card"
+                data-reveal
+                style={`--reveal-delay:${Math.min(i, 8) * 40}ms`}
+              >
+                <span class="srs-dot mt-[0.42rem]" style={`--srs:${s.color}`} />
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-baseline justify-between gap-4">
+                    <h3 class="truncate font-display text-[1.02rem] leading-7 text-ink transition-colors group-hover:text-accent">
+                      {post.data.title}
+                    </h3>
+                    <time
+                      datetime={post.data.pubDate.toISOString()}
+                      class="shrink-0 font-mono text-[0.7rem] text-faint"
+                    >
+                      {fmtDate(post.data.pubDate)}
+                    </time>
+                  </div>
+                  <p class="mt-1 line-clamp-1 text-[0.82rem] leading-6 text-mute">
+                    {post.data.description}
+                  </p>
+                </div>
+              </a>
+            );
+          })
+        }
+      </div>
+    </section>
+
+    <section class="shell pb-10 pt-8">
+      <div class="flex items-baseline justify-between border-t border-line pt-10" data-reveal>
+        <h2 class="font-display text-2xl text-ink">
+          在做的东西<span class="ml-3 align-middle font-mono text-[0.68rem] tracking-[0.12em] text-faint uppercase">projects</span>
+        </h2>
+        <a href="/projects/" class="font-mono text-xs text-link transition-colors hover:text-accent">全部 →</a>
+      </div>
+      <div class="mt-2">
+        {
+          projects.map((project, i) => (
+            <a
+              href={`/projects/${project.id}/`}
+              class="group -mx-4 flex items-baseline gap-4 rounded-xl px-4 py-3.5 transition-colors duration-200 hover:bg-card"
+              data-reveal
+              style={`--reveal-delay:${i * 50}ms`}
+            >
+              <span class="shrink-0 text-base leading-none">{project.data.icon}</span>
+              <div class="flex min-w-0 flex-1 items-baseline justify-between gap-4">
+                <h3 class="truncate text-[0.92rem] font-medium text-ink transition-colors group-hover:text-accent">
+                  {project.data.title}
+                </h3>
+                <span class="hidden shrink-0 max-w-[16rem] truncate font-mono text-[0.7rem] text-faint sm:block">
+                  {kindLabel[project.data.kind]}
+                </span>
+              </div>
+            </a>
+          ))
+        }
+      </div>
+    </section>
+
+    <section class="shell pb-4">
+      <a
+        href="/about/"
+        class="group -mx-4 flex items-baseline justify-between gap-4 rounded-xl px-4 py-4 transition-colors hover:bg-card"
+        data-reveal
+      >
+        <p class="text-[0.9rem] text-mute">
+          <span class="font-display text-ink">关于这个人：</span>
+          小厨神、羽毛球新手、INTJ 紫老头
+        </p>
+        <span class="shrink-0 font-mono text-xs text-link transition-transform duration-300 group-hover:translate-x-1">→</span>
+      </a>
+    </section>
+  </div>
+</BaseLayout>

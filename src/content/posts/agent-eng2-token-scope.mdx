@@ -1,0 +1,73 @@
+---
+title: "藏起来不等于没有：API Token 的权限面为什么必须前后端同源"
+description: "想给 Token 勾个「看 trace」的权限，结果页面上能选执行、写入、sandbox，偏偏没有我要的那个只读。往下挖，藏着一条更阴的缝：UI 藏起来的 scope，后端照样能签出去。"
+pubDate: 2026-09-24
+tags: ["agent", "api-token", "authorization", "security"]
+cover: "https://bugyalu-1307401873.cos.ap-guangzhou.myqcloud.com/typora/token-cover.png"
+---
+
+事情起于一个很朴素的需求：我们的 QA Agent 平台终于能签 API Token 了，我想勾一个「看 trace」的权限，好在脚本里调试 Mastra Studio 的执行树。
+
+打开 Token 创建页的那一刻我就愣住了。九个 scope 摆在那儿，能选的方向包括执行、写入甚至 sandbox——一个比一个生猛——唯独没有我想要的 observability 只读。这就像去便利店买瓶水，店员说水没有，但砍刀、爆竹和盐酸随便挑。
+
+追查下去，页面的实现堪称淳朴：把 permission catalog 里所有 `audience: api` 的权限机械地并集展示，再把 `platform.*` 一刀切排除。这个「audience 过滤」的初心大概是「只暴露给 API 消费者的能力」，但它犯了两个方向的错——既把一堆跟实际消费场景无关的高风险权限摆上了货架（内部 workflow execute、scorer read 这些根本没有 API-key 消费者的内部能力，也赫然在列），又把真正有用的 platform 只读能力关在了门外。最坏的那种权限设计：吓人，但不解决问题。
+
+**Catalog 是能力全集，不是可签发的产品面**——这句话写起来容易，踩到才知道疼。catalog 的职责是枚举「系统能做的一切」，而 Token 页面的职责是回答「我们支持用户拿 token 干什么」。前者是能力清单，后者是产品承诺，拿前者直接当后者，等于把后厨的全部食材写进菜单。
+
+![权限面的双向失守](https://bugyalu-1307401873.cos.ap-guangzhou.myqcloud.com/typora/token-cover.png)
+
+## 两个同名 trace，三种「只读」
+
+往下挖还有一层好玩的：「看 trace」这句话本身就是歧义。`qasey.runs.read` 读的是 E2E run 的 Playwright `trace.zip`，那是测试 artifact；Mastra Studio 的执行树要的是 platform runtime inspect，那是 observability 数据面；Datadog APM 里的 trace 又是第三种资源。三个同名 trace，三条 route，三种 scope——不先分清资源就谈授权，等于给「文件」二字配一把万能钥匙。
+
+这也顺手打破一个直觉：「只读」不是一个布尔值。runtime inspect、catalog read、background task、schedule、internal workflow metadata，敏感度各不相同——internal workflow 的元数据对普通租户来说未必该看，但它确实「只是读」。Read-only 是一个光谱，不是一道闸门：观测执行树需要 inspect，列资源清单需要 catalog read，看调度配置需要 schedule read，把它们揉成一个「read」scope，要么给多了要么给少了。
+
+所以最后的方案不是开放整个 `platform.*`，而是显式列出一组只读 platform scope：runtime inspect 加上有限的 catalog/task/schedule/internal workflow read，同时精确隐藏三个内部 workflow execute 和 scorer read——那些根本没有 API-key 消费者的内部能力，本来就不该出现在签发面。也考虑过更洁癖的方案：新建一个窄到家的 `qasey.traces.read`，只放 observability 一路——权限最小，但要新配 route 和 scope 映射，最后选了复用现有只读面。洁癖和实用之间，这次实用赢了，代价是 platform read 面比「纯 trace」宽一些，租户隔离和数据分类的 E2E 就得补得更勤。
+
+## 假边界比没边界更危险
+
+这轮改造里我认为最关键的一条是：**Token UI、后端签发 validation、route authorization 共用同一份显式 allow/deny policy**。
+
+为什么强调「同一份」？因为只改页面是权限设计里最经典的自欺。设想一个时间线：某天后端给 catalog 加了个新 scope，UI 的并集逻辑变了或没变——只要两端各自为政，迟早会漂出四种组合里的两种灾难：UI 上藏掉一个 scope，后端签发如果还能签发它，就形成「页面干净、权限照发」的假边界——安全工程师看着放心，攻击者用着舒心；反过来，页面显示了某 scope 而后端 validation 不认，就成了「看得见但签不出」的假功能，用户照着文档勾完发现拿到的 token 是残废。两个方向的漂移，一个叫越权，一个叫欺诈，都得靠同源 policy 来堵。
+
+「同源」的具体含义是三个消费点读一份事实：Token 创建页拿它渲染可选项，签发接口拿它做 validation，业务 route 拿它做 authorization。任何一处单独演进，policy 就成了三份各自过期的复印件。还有个对应的测试视角：authorization 测试要同时覆盖正向（token 带 scope 能读）和两个负向（签了不该签的被拒、藏了仍能签的被拒）——只验「能用的能用」，等于只装了门锁没装门框。
+
+顺带的治理规则：catalog 里新增的 scope 对 Token 面一律 default deny，显式 review 数据敏感度后才进 allow list。权限这种事，默认放行是负债，默认拒绝才是资产。更进一步，也许未来该按「Trace debug」「Run automation」这种场景模板分组暴露，而不是让用户在裸 scope 列表里自己考古——产品面应该长得像意图，而不是能力索引。
+
+Token 本身的生命周期也在这轮补齐。之前系统能校验环境级 Bearer，但「支持 Bearer」和「有 credential 生命周期」是两个能力——中间件能认出 token，不代表租户有地方创建、查看、吊销它。新做的 Service Token 走标准生命周期：明文只在 create 响应里出现一次，过期不候；库里存的是高熵 token 的 hash 加一小段识别前缀，prefix 用来检索，verifier 不可逆；create-once、list metadata、expire、revoke、last-used、audit，整条链路才算闭环。
+
+最重要的一条设计：**权限固化在 token 资源上，不继承创建人的管理员身份**。Bearer resolver 解出来的是一个独立的 API principal，审计身份指向 token 本身。动态继承听起来省事——「token 就用创建者的权限呗」——但那意味着权限随人漂移：人升职了 token 自动升级，人离职了 token 还挂着管理员权限在外面跑，审计问「这次调用是谁授的权」，答案是「一个已经不存在的人的过去式权限」。想想都刺激。也正因为这个，MVP 选了 Service Token 而不是 Personal Token：服务集成不该绑定个人身份和离职语义，它需要的是独立于人的、可吊销的、有边界的 principal。
+
+生命周期里还有几个细节值得记：`last-used` 每请求写库会造成热路径写入，得节流或异步；prefix 太短或 token 熵不足会削弱 verifier 的安全性；改权限不靠「原地编辑 secret」，靠「新建 + 吊销」——secret 一经签发就不再变更，审计链才不会断。
+
+![签发面与生命周期](https://bugyalu-1307401873.cos.ap-guangzhou.myqcloud.com/typora/token-lifecycle.png)
+
+## 开发调试身份：一个窄门，不是后门
+
+同一个星期还处理了另一个相邻问题：本地调试 Admin/Studio API 需要用户 principal，但浏览器走 Google OAuth、Slack/Jira 走签名链、service Bearer 只有 service identity——哪个都不是「本地开发者」。
+
+方案给 identity 开了条窄门：development-only Bearer。客户端只提交一个高熵 token，躺在被 git 忽略的 `.env.local` 里；服务端在 development 环境把它映射成固定的 `local-developer / local-development / platform-admin` principal。三条硬边界全部由代码强制：**tenant、user、role 由服务端常量决定，客户端自报一律不认**；**production 里检测到该配置，启动期直接 fail fast**——误配置从「潜在后门」变成「起不来的服务」，一个跑不起来的服务比一个悄悄开了后门的服务可爱一万倍；**test 环境完全忽略本机 secret**，不然测试通过与否取决于谁电脑上有什么 token，可复现性和机密性一起完蛋。运维文档只写怎么安全加载和重放，不许打印 token 本身——不然「被忽略的 secret」会从日志、聊天、Wiki 三路漏出去。
+
+被否掉的方案凑起来能开一届「偷懒博览会」：复用 service Bearer——它没有用户语义，Admin/Studio API 根本不买账；让客户端在请求里带 tenant/user/role——等于让乘客自己填登机牌上的座位和舱位；把 secret 编进前端 bundle——打包产物人人可下载，那不叫配置叫分发；production 里也保留开发 token「兜底」——紧急调试是方便了，代价是一个不可审计的生产 bypass；test 自动读 `.env.local`——测试结果跟着个人环境漂移，CI 上红得莫名其妙。每一条单看都「只是图个方便」，合起来就是一套完整的自毁流程。
+
+也要说清楚这条窄门不适用的场景：固定 principal 只能模拟「一个受控开发角色」，想测多租户、多角色的授权矩阵，请老老实实上受控 OAuth fixture 或测试账户。拿单一 dev principal 跑权限矩阵，得到的不是覆盖率，是假覆盖——以为验过了，其实只验了一个人。
+
+验证矩阵也是反着来的：正确 token 本地 200、错误 token 401、production fail-fast、test ignore、其他认证面不受影响——49 个文件 205 个测试全过。我尤其喜欢这条思路：**安全的反面用例和正面用例一样重要**，「不该通的确实不通」要逐条验，不能靠推理。
+
+## 顺带的供应链惊吓
+
+这轮工作还有个买一送一的教训。Token 的存储表逼着我们把应用 DDL 统一收进 Prisma migration，结果部署时连环踩雷：clean CI 里没有 `prisma generate`——本地缓存的 generated client 掩盖了它；裁剪容器里跑 pnpm script 在非 TTY 环境下直接挂；旧非空库抛 P3005；Mastra 自建表被 baseline 误判成「陌生结构」；baseline 过了之后又发现 runtime 镜像里缺 Prisma package——**编译能解析生成的类型，不代表裁剪镜像能加载生成的 client**。
+
+最终的方案是 ownership 分家：应用表归 Prisma 管，`mastra_*` 表归 Mastra 管，同一个 schema 里分 owner 共存——两个组件抢同一批表的所有权，比表本身乱更可怕；旧库接管走 allowlist baseline——只认空库、已知应用表、已知 mastra 表或两者并存，陌生非空库直接拒绝，因为「强行 baseline 一个不认识的数据库」的剧本，主角通常不是你而是事故报告。
+
+留下的运维债也记一笔：API 和 Worker 并发启动时都可能跑 migration，既拖慢启动又让应用账号长期背着 DDL 权限；更干净的做法是把 migration 挪到 deploy job 或 init container，让应用进程只做读取。这个权衡先欠着，记在案：启动前自动迁移换来了「环境永远就绪」的确定性，代价是启动链路上多了一个重量级依赖。
+
+这条插曲跟 Token 主题的关系比看上去深：**clean CI、容器构建、migration、runtime 加载，是四个各自独立的验证面**——前面三步全绿，第四步照样能把你拦在门口。「构建产物存在」和「运行环境加载得了它」之间的距离，比大多数依赖关系图都诚实。
+
+## 验收这件事本身
+
+权限面的验收清单其实挺朴素：一次真实 token 的 create → copy once → use → audit → expire → revoke → 拒用全流程，注意是「全流程」，不是「create 能通」；platform read 的租户隔离负向测试——internal workflow metadata 这种灰色地带，普通租户到底该不该看见，得用真实请求回答；新增 scope 的 default deny 回归；还有 dev Bearer 的持续负向矩阵——production fail-fast、test ignore、错误 token 401，防止哪天重构 authentication middleware 时这条窄门悄悄变宽。
+
+诚实记录当前证据边界：scope policy 的改动推了 main 但没验证部署，token 生命周期在 testing 过了 readiness 但没跑过真实租户的完整 E2E，dev Bearer 只在本地验过 200/401——三样东西分别停在「代码对」「测试环境能跑」「本地能跑」三个台阶上，谁也别替谁往上抬一级。Token 数量、last-used 写入节流、prefix 碰撞这些容量问题也还没用真实数据校准过，写在这儿备查。
+
+一句话收束：权限边界要长在签发和路由的同一条 policy 上，UI 只是它的投影。投影可以裁剪，但剪掉的每一笔，后端都得照样拒绝——否则你做的不是权限设计，是布景设计。
