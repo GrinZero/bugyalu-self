@@ -1,0 +1,225 @@
+---
+import type { CollectionEntry } from "astro:content";
+import { seriesOf, writingTopics } from "../data/site";
+interface Props { posts: CollectionEntry<"posts">[] }
+const { posts } = Astro.props;
+const pageSize = 8;
+const topics = [{ id: "all", label: "全部", color: "var(--accent)" }, ...writingTopics];
+const date = (d: Date) => d.toISOString().slice(0, 10).replaceAll("-", ".");
+---
+
+<writing-archive data-page-size={pageSize}>
+  <div class="archive-controls" hidden>
+    <div class="search-row">
+      <label class="search-box">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>
+        <span class="sr-only">搜索文章</span>
+        <input type="search" placeholder="搜索标题、摘要或标签…" maxlength="160" autocomplete="off" />
+        <span class="search-hint" aria-hidden="true">SEARCH NOTES</span>
+      </label>
+    </div>
+    <div class="topic-filters" role="group" aria-label="按主题筛选">
+      <span class="topic-indicator" aria-hidden="true"></span>
+      {topics.map(topic => (
+        <button type="button" data-topic={topic.id} aria-pressed={topic.id === "all"} style={`--topic-color:${topic.color}`}>
+          <span>{topic.label}</span>
+          <span class="topic-count">{topic.id === "all" ? posts.length : posts.filter(post => seriesOf(post.id).id === topic.id).length}</span>
+        </button>
+      ))}
+    </div>
+    <div class="results-bar">
+      <p class="result-status" role="status" aria-live="polite" aria-atomic="true"></p>
+      <button type="button" class="clear-filters" hidden>清除筛选 ↗</button>
+    </div>
+  </div>
+
+  <div class="article-list" id="article-results">
+    {posts.map(post => {
+      const topic = seriesOf(post.id);
+      return (
+        <article class="article-entry" data-topic={topic.id} data-search={`${post.data.title} ${post.data.description} ${post.data.tags.join(" ")}`.toLocaleLowerCase()}>
+          <a href={`/writing/${post.id}/`} class="article-link" style={`--topic-color:${topic.color}`}>
+            <div class="article-meta"><span class="article-topic"><i></i>{topic.label}</span><time datetime={post.data.pubDate.toISOString()}>{date(post.data.pubDate)}</time></div>
+            <h2>{post.data.title}<span class="article-arrow" aria-hidden="true">↗</span></h2>
+            <p class="article-description">{post.data.description}</p>
+            <ul class="article-tags" aria-label="文章标签">{post.data.tags.map(tag => <li>#{tag}</li>)}</ul>
+          </a>
+        </article>
+      );
+    })}
+  </div>
+
+  <div class="archive-empty" hidden>
+    <span aria-hidden="true">∅</span>
+    <h2>还没有匹配的手记。</h2>
+    <p>换个关键词，或清除筛选看看其他文章。</p>
+    <button type="button" class="reset-empty">查看全部文章 →</button>
+  </div>
+
+  <nav class="archive-pagination" aria-label="文章分页" hidden>
+    <button type="button" class="page-prev" aria-controls="article-results">← 上一页</button>
+    <div class="page-numbers">
+      {Array.from({ length: Math.ceil(posts.length / pageSize) }, (_, i) => <button type="button" data-page={i + 1} aria-label={`第 ${i + 1} 页`} aria-controls="article-results">{String(i + 1).padStart(2, "0")}</button>)}
+    </div>
+    <button type="button" class="page-next" aria-controls="article-results">下一页 →</button>
+  </nav>
+</writing-archive>
+
+<script>
+  import { gsap } from "gsap";
+
+  class WritingArchive extends HTMLElement {
+    private dispose?: () => void;
+
+    connectedCallback() {
+      const entries = Array.from(this.querySelectorAll<HTMLElement>(".article-entry"));
+      const filters = Array.from(this.querySelectorAll<HTMLButtonElement>("[data-topic][type=button]"));
+      const pages = Array.from(this.querySelectorAll<HTMLButtonElement>("[data-page]"));
+      const list = this.querySelector<HTMLElement>(".article-list")!;
+      const input = this.querySelector<HTMLInputElement>("input")!;
+      const status = this.querySelector<HTMLElement>(".result-status")!;
+      const indicator = this.querySelector<HTMLElement>(".topic-indicator")!;
+      const filterRow = this.querySelector<HTMLElement>(".topic-filters")!;
+      const pagination = this.querySelector<HTMLElement>(".archive-pagination")!;
+      const empty = this.querySelector<HTMLElement>(".archive-empty")!;
+      const clear = this.querySelector<HTMLButtonElement>(".clear-filters")!;
+      const previous = this.querySelector<HTMLButtonElement>(".page-prev")!;
+      const next = this.querySelector<HTMLButtonElement>(".page-next")!;
+      const pageSize = Number(this.dataset.pageSize);
+      const events = new AbortController();
+      const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+      let topic = "all", query = "", page = 1, totalPages = 1;
+      let debounce: ReturnType<typeof setTimeout> | undefined;
+      let animation: gsap.core.Timeline | undefined;
+
+      const readURL = () => {
+        const params = new URL(location.href).searchParams;
+        topic = filters.some(button => button.dataset.topic === params.get("topic")) ? params.get("topic")! : "all";
+        query = (params.get("q") || "").slice(0, 160);
+        const requested = Number(params.get("page"));
+        page = Number.isSafeInteger(requested) && requested > 0 ? requested : 1;
+        input.value = query;
+      };
+      const saveURL = (mode: "push" | "replace") => {
+        const url = new URL(location.href);
+        topic === "all" ? url.searchParams.delete("topic") : url.searchParams.set("topic", topic);
+        query ? url.searchParams.set("q", query) : url.searchParams.delete("q");
+        page === 1 ? url.searchParams.delete("page") : url.searchParams.set("page", String(page));
+        if (url.href !== location.href) history[mode === "push" ? "pushState" : "replaceState"](null, "", url);
+      };
+      const moveIndicator = (animate: boolean) => {
+        const selected = filters.find(button => button.dataset.topic === topic)!;
+        gsap.to(indicator, { x: selected.offsetLeft, y: selected.offsetTop, width: selected.offsetWidth, height: selected.offsetHeight,
+          duration: animate && !reduced.matches ? .45 : 0, ease: "power3.out", overwrite: true });
+      };
+      const render = (animate = true, scroll = false) => {
+        animation?.kill();
+        gsap.set(entries, { clearProps: "all" });
+        gsap.set(list, { clearProps: "all" });
+        const oldHeight = list.offsetHeight;
+        const terms = query.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
+        const matched = entries.filter(entry => (topic === "all" || entry.dataset.topic === topic) && terms.every(term => entry.dataset.search!.includes(term)));
+        totalPages = Math.max(1, Math.ceil(matched.length / pageSize));
+        page = Math.min(page, totalPages);
+        const visible = matched.slice((page - 1) * pageSize, page * pageSize);
+        entries.forEach(entry => { entry.hidden = !visible.includes(entry); });
+        empty.hidden = matched.length > 0;
+        pagination.hidden = totalPages <= 1;
+        clear.hidden = topic === "all" && !query;
+        status.textContent = matched.length ? `${matched.length} 篇手记 · 第 ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, matched.length)} 篇` : "0 篇匹配的手记";
+        filters.forEach(button => button.setAttribute("aria-pressed", String(button.dataset.topic === topic)));
+        pages.forEach(button => {
+          button.hidden = Number(button.dataset.page) > totalPages;
+          if (Number(button.dataset.page) === page) button.setAttribute("aria-current", "page");
+          else button.removeAttribute("aria-current");
+        });
+        previous.disabled = page === 1;
+        next.disabled = page === totalPages;
+        moveIndicator(animate);
+        if (animate && !reduced.matches) {
+          const height = list.offsetHeight;
+          animation = gsap.timeline()
+            .fromTo(list, { height: oldHeight, overflow: "hidden" }, { height, duration: .4, ease: "power3.inOut", clearProps: "height,overflow" })
+            .fromTo(visible, { autoAlpha: 0, y: 18, x: 8 }, { autoAlpha: 1, y: 0, x: 0, duration: .45, stagger: .045, ease: "power3.out", clearProps: "all" }, .08);
+        }
+        if (scroll && this.getBoundingClientRect().top < 80) this.scrollIntoView({ behavior: reduced.matches ? "instant" : "smooth", block: "start" });
+      };
+      const cancelSearch = () => { clearTimeout(debounce); query = input.value.trim(); };
+      const changePage = (value: number) => { cancelSearch(); page = value; render(true, true); saveURL("push"); };
+      filters.forEach(button => button.addEventListener("click", () => {
+        cancelSearch(); topic = button.dataset.topic!; page = 1; render(); saveURL("push");
+      }, { signal: events.signal }));
+      input.addEventListener("input", event => {
+        clearTimeout(debounce);
+        if ((event as InputEvent).isComposing) return;
+        debounce = setTimeout(() => { query = input.value.trim(); page = 1; render(); saveURL("replace"); }, 180);
+      }, { signal: events.signal });
+      pages.forEach(button => button.addEventListener("click", () => changePage(Number(button.dataset.page)), { signal: events.signal }));
+      previous.addEventListener("click", () => changePage(page - 1), { signal: events.signal });
+      next.addEventListener("click", () => changePage(page + 1), { signal: events.signal });
+      const reset = () => { clearTimeout(debounce); topic = "all"; query = ""; page = 1; input.value = ""; render(); saveURL("push"); input.focus({ preventScroll: true }); };
+      clear.addEventListener("click", reset, { signal: events.signal });
+      this.querySelector(".reset-empty")!.addEventListener("click", reset, { signal: events.signal });
+      window.addEventListener("popstate", () => { clearTimeout(debounce); readURL(); render(); saveURL("replace"); }, { signal: events.signal });
+      reduced.addEventListener("change", () => render(false), { signal: events.signal });
+      const resize = new ResizeObserver(() => moveIndicator(false));
+      resize.observe(filterRow);
+      this.querySelector<HTMLElement>(".archive-controls")!.hidden = false;
+      readURL(); render(false); saveURL("replace");
+      this.dispose = () => { events.abort(); clearTimeout(debounce); resize.disconnect(); animation?.kill(); gsap.killTweensOf(indicator); };
+    }
+    disconnectedCallback() { this.dispose?.(); }
+  }
+  if (!customElements.get("writing-archive")) customElements.define("writing-archive", WritingArchive);
+</script>
+
+<style>
+  writing-archive { display: block; scroll-margin-top: 6rem; }
+  [hidden] { display: none !important; }
+  .search-box { display: flex; align-items: center; gap: .8rem; border: 1px solid var(--line-strong); border-radius: .7rem; background: var(--soft); padding: .9rem 1rem; color: var(--ink-2); }
+  .search-box:focus-within { border-color: var(--accent); }
+  input { min-width: 0; width: 100%; outline: none; font: .85rem var(--font-body); color: var(--ink); background: transparent; }
+  input::placeholder { color: var(--ink-2); }
+  .search-hint { flex-shrink: 0; font: .55rem var(--font-mono); letter-spacing: .12em; color: var(--ink-3); }
+  .topic-filters { position: relative; display: flex; flex-wrap: wrap; gap: .4rem; margin-top: 1.1rem; isolation: isolate; }
+  .topic-indicator { position: absolute; top: 0; left: 0; z-index: -1; border: 1px solid var(--line-strong); background: var(--card); border-radius: .5rem; pointer-events: none; }
+  .topic-filters button { display: flex; align-items: center; gap: .6rem; min-height: 42px; padding: .55rem .85rem; font-size: .77rem; color: var(--ink-2); cursor: pointer; }
+  .topic-filters button[aria-pressed="true"] { color: var(--topic-color); }
+  .topic-count { font: .62rem var(--font-mono); opacity: .7; }
+  .results-bar { min-height: 62px; display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--line); }
+  .result-status { font: .68rem var(--font-mono); color: var(--ink-2); }
+  .clear-filters { font-size: .7rem; color: var(--link); cursor: pointer; padding: .65rem 0; }
+  .article-entry { border-bottom: 1px solid var(--line); }
+  .article-link { display: block; padding: 1.65rem .25rem; }
+  .article-meta { display: flex; align-items: center; justify-content: space-between; gap: 1rem; font: .65rem var(--font-mono); color: var(--ink-2); }
+  .article-topic { display: inline-flex; align-items: center; gap: .55rem; color: var(--topic-color); }
+  .article-topic i { width: 5px; height: 5px; background: currentColor; border-radius: 50%; }
+  h2 { position: relative; margin-top: .75rem; padding-right: 1.5rem; font: 1.12rem/1.65 var(--font-display); color: var(--ink); transition: color .2s; }
+  .article-arrow { position: absolute; right: 0; top: .15rem; font: 1rem var(--font-body); color: var(--topic-color); opacity: 0; transform: translate(-5px, 5px); transition: opacity .2s, transform .2s; }
+  .article-link:hover h2 { color: var(--topic-color); }
+  .article-link:hover .article-arrow, .article-link:focus-visible .article-arrow { opacity: 1; transform: none; }
+  .article-description { margin-top: .5rem; color: var(--ink-2); font-size: .8rem; line-height: 1.9; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .article-tags { display: flex; flex-wrap: wrap; gap: .35rem .75rem; margin-top: .8rem; font: .61rem/1.7 var(--font-mono); color: var(--ink-3); }
+  .archive-pagination { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-top: 2rem; }
+  .archive-pagination button { min-height: 42px; cursor: pointer; font: .72rem var(--font-mono); color: var(--ink-2); }
+  .archive-pagination button:disabled { opacity: .3; cursor: default; }
+  .page-numbers { display: flex; gap: .3rem; }
+  .page-numbers button { width: 38px; border-radius: .5rem; border: 1px solid transparent; }
+  .page-numbers button[aria-current="page"] { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .archive-empty { text-align: center; padding: 3rem 1rem; border-bottom: 1px solid var(--line); }
+  .archive-empty > span { font: 2.5rem var(--font-mono); color: var(--accent); }
+  .archive-empty h2 { padding: 0; }
+  .archive-empty p { font-size: .8rem; color: var(--ink-2); margin: .6rem 0 1.25rem; }
+  .reset-empty { color: var(--link); font-size: .8rem; padding: .65rem; cursor: pointer; }
+  @media (max-width: 480px) {
+    .search-hint { display: none; }
+    .topic-filters { gap: .25rem; }
+    .topic-filters button { padding: .45rem .65rem; font-size: .72rem; }
+    .article-link { padding: 1.4rem 0; }
+    h2 { font-size: 1.05rem; }
+    .page-numbers { gap: .1rem; }
+    .page-numbers button { width: 30px; }
+    .archive-pagination { gap: .3rem; }
+    .archive-pagination button { font-size: .65rem; }
+  }
+</style>

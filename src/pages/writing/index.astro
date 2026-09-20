@@ -1,14 +1,13 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import PageHeader from "../../components/PageHeader.astro";
-import { seriesOf } from "../../data/site";
+import WritingArchive from "../../components/WritingArchive.astro";
 import { getCollection } from "astro:content";
 
 const posts = (await getCollection("posts")).sort(
   (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
 );
 
-const fmtDate = (d: Date) => `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`;
 ---
 
 <BaseLayout title="手记 — Bugyalu" description="关于工程、AI、产品体验和那些还没有被压缩成一句结论的东西。">
@@ -19,39 +18,6 @@ const fmtDate = (d: Date) => `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate
       description="关于工程、AI、产品体验和那些还没有被压缩成一句结论的东西。"
     />
 
-    <div>
-      {
-        posts.map((post, index) => {
-          const s = seriesOf(post.id);
-          return (
-            <a
-              href={`/writing/${post.id}/`}
-              class="group -mx-4 flex items-start gap-3.5 rounded-xl px-4 py-4 transition-colors duration-200 hover:bg-card"
-              data-reveal
-              style={`--reveal-delay:${Math.min(index, 8) * 40}ms`}
-            >
-              <span class="srs-dot mt-[0.42rem]" style={`--srs:${s.color}`} />
-              <div class="min-w-0 flex-1">
-                <div class="flex items-baseline justify-between gap-4">
-                  <h2 class="truncate font-display text-[1.02rem] leading-7 text-ink transition-colors group-hover:text-accent">
-                    {post.data.title}
-                  </h2>
-                  <time datetime={post.data.pubDate.toISOString()} class="shrink-0 font-mono text-[0.7rem] text-faint">
-                    {fmtDate(post.data.pubDate)}
-                  </time>
-                </div>
-                <p class="mt-1 line-clamp-1 text-[0.82rem] leading-6 text-mute">{post.data.description}</p>
-                <div class="mt-1.5 flex flex-wrap gap-x-3">
-                  <span class="font-mono text-[0.68rem] text-faint">{s.label}</span>
-                  {post.data.tags.map((tag) => (
-                    <span class="font-mono text-[0.68rem] text-faint">#{tag}</span>
-                  ))}
-                </div>
-              </div>
-            </a>
-          );
-        })
-      }
-    </div>
+    <WritingArchive posts={posts} />
   </section>
 </BaseLayout>

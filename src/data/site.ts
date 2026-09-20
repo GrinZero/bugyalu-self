@@ -64,19 +64,76 @@ export const highlights: HighlightItem[] = [
   },
 ];
 
-export const skills = [
-  { name: "TypeScript / JavaScript / CSS", level: "A+", note: "处理性能问题的基础能力" },
-  { name: "Node.js", level: "A+", note: "官方的网络调试方案提供者" },
-  { name: "React", level: "A+", note: "魔改成功 React 编译器" },
-  { name: "AI / Agentic Workflows", level: "A", note: "国内第一批 ChatGPT 玩家 · Devin 深度用户" },
-  { name: "React Native / Expo", level: "B+", note: "修复 Expo 持续三年的原生缺陷" },
-  { name: "Rust", level: "B+", note: "落地两个应用" },
-  { name: "Electron / Tauri", level: "C+", note: "学而不精", retired: true },
-  { name: "Python", level: "C", note: "量化入门", retired: true },
-  { name: "小程序", level: "C", note: "快忘光了", retired: true },
+export const skillDomains = [
+  {
+    id: "frontend",
+    evidence: { label: "性能优化实践", href: "#performance-engineering" },
+    name: "前端工程",
+    english: "Frontend",
+    summary: "从复杂业务界面到跨端应用，深入渲染、性能与工程基础。",
+    capabilities: [
+      { name: "Web 应用与架构", detail: "React 组件与状态管理、响应式渲染、SDK 设计与工程化。" },
+      { name: "性能分析与优化", detail: "Web Vitals、渲染调度、懒加载、包体积与内存优化。" },
+      { name: "跨端与原生集成", detail: "React Native / Expo、Hybrid 通信、跨端鉴权与原生能力接入。" },
+    ],
+    stack: ["TypeScript", "JavaScript", "CSS", "React", "Next.js", "React Native", "Vite"],
+  },
+  {
+    id: "backend",
+    evidence: { label: "BFF 实践", href: "#bff-project" },
+    name: "后端工程",
+    english: "Backend",
+    summary: "围绕业务构建 Node.js 服务，打通接口、数据与调试链路。",
+    capabilities: [
+      { name: "服务与接口设计", detail: "BFF 架构、接口聚合、Schema 对齐与多租户资源隔离。" },
+      { name: "数据库与文件处理", detail: "PostgreSQL、Redis 应用实践，ClickHouse 查询调优，以及对象存储、分片上传与断点续传。" },
+      { name: "协议与工具开发", detail: "Node.js 网络调试、CDP 协议集成、CLI 与 Rust 工具开发。" },
+    ],
+    stack: ["Node.js", "Hono", "Express", "PostgreSQL", "Redis", "ClickHouse", "AWS S3", "Rust"],
+  },
+  {
+    id: "ai",
+    evidence: { label: "Agent 落地实践", href: "#ai-engineering" },
+    name: "AI 应用工程",
+    english: "AI Engineering",
+    summary: "让模型接入真实业务流程，用检索、证据和评估改进结果。",
+    capabilities: [
+      { name: "Agent 框架与 Harness", detail: "Mastra、pi-agent 与 Agent Harness 应用实践，Runtime 集成、服务端流程编排、故障定位与代码修复。" },
+      { name: "RAG 与知识检索", detail: "Google Agent Search 应用实践，知识图谱、实体关系抽取、BM25 与向量混合检索。" },
+      { name: "评估与持续改进", detail: "分步评估、问题分桶、多路召回融合与关键证据召回率优化。" },
+    ],
+    stack: ["Mastra", "Google Agent Search", "pi-agent", "Harness", "Codex", "Gemini", "Weaviate", "LiteLLM", "RAG", "Agent Skills"],
+  },
+  {
+    id: "devops",
+    evidence: null,
+    name: "DevOps 与可观测性",
+    english: "DevOps & Observability",
+    summary: "把发布、监控、排障和质量检查连成可持续的工程流程。",
+    capabilities: [
+      { name: "部署与发布工具", detail: "容器化服务、集群调试工具、热更新回滚与运行时兼容性管理。" },
+      { name: "全链路可观测性", detail: "浏览器到微服务的 Trace 串联、错误率监控、行为回放与故障回溯。" },
+      { name: "工程质量与效率", detail: "CI 依赖检查提速、自定义 Lint 规则、性能预算与防劣化流程。" },
+    ],
+    stack: ["Docker", "Kubernetes", "AWS", "Datadog", "Sentry", "rrweb"],
+  },
+  {
+    id: "product",
+    evidence: null,
+    name: "产品与体验设计",
+    english: "Product & Experience",
+    summary: "从实际使用问题出发，推动需求、交互与工程实现一起落地。",
+    capabilities: [
+      { name: "需求分析与方案设计", detail: "识别业务与协作痛点，拆解功能范围，推动工具和平台建设。" },
+      { name: "信息组织与交互", detail: "全局搜索与快捷导航、复杂平台交互、性能数据可视化。" },
+      { name: "设计与研发协作", detail: "Figma 插件、品牌资源配置与多租户应用的设计交付流程。" },
+    ],
+    stack: ["Figma Plugin", "Global Search", "数据可视化", "多品牌定制"],
+  },
 ];
 
 export interface WorkBlock {
+  id?: string;
   lead?: string;
   text: string;
   children?: string[];
@@ -84,6 +141,7 @@ export interface WorkBlock {
 }
 
 export interface WorkSection {
+  id?: string;
   icon: string;
   title: string;
   stack?: string;
@@ -108,6 +166,7 @@ export const experience: WorkEntry[] = [
       {
         icon: "🔥",
         title: "AI 应用专项工程",
+        id: "ai-engineering",
         stack: "codex / gemini + Weaviate + Express",
         intro:
           "为了推动 AI 在 MoeGo 各个流程中的提效和实际落地，以 LiteLLM 为基础向全公司开放免费 token，允许员工自行探索 AI 应用的落地。我在专项中推出了以下几个产品 / 解决方案。",
@@ -162,6 +221,7 @@ export const experience: WorkEntry[] = [
         blocks: [
           {
             lead: "BFF 项目",
+            id: "bff-project",
             text: "Backend for Frontend，由前端开发/使用的后端项目，为解决团队内在前端组装请求数据导致的业务复杂度而诞生。",
             children: [
               "搭建 MoeGo 首个 Node.js 服务，设计并实现多个脚手架脚本（连接 k8s 集群进行调试的交互式 CLI、create-route 模板 CLI），让研发接入无心智负担。",
@@ -191,6 +251,7 @@ export const experience: WorkEntry[] = [
       {
         icon: "🚀",
         title: "业务性能优化专项",
+        id: "performance-engineering",
         blocks: [
           { text: "紧急时刻介入 Web 端性能优化：首页表格加载 1.95s → 270ms，lodging view 日历加载 3s → 400ms，解决持续很久的日历动画卡顿以及其他子项优化。" },
           { text: "优化状态库 amos，引入 auto batching，提升大部分页面 LCP 200～500ms（平均 38%），并解决特定场景下批量渲染卡顿问题。" },
@@ -289,11 +350,12 @@ export const nav = [
   { label: "这个人", href: "/about/" },
 ];
 
+export const writingTopics = [
+  { id: "agent", label: "AI / Agent", color: "var(--s-agent)" },
+  { id: "devtools", label: "DevTools", color: "var(--s-devtools)" },
+  { id: "infra", label: "系统工程", color: "var(--s-field)" },
+  { id: "notes", label: "实践手记", color: "var(--s-note)" },
+];
+
 export const seriesOf = (id: string) =>
-  id.startsWith("devtools-")
-    ? { label: "DevTools", color: "var(--s-devtools)" }
-    : id.startsWith("agent-eng-")
-      ? { label: "Agent 工程", color: "var(--s-agent)" }
-      : id.startsWith("field-")
-        ? { label: "Field", color: "var(--s-field)" }
-        : { label: "手记", color: "var(--s-note)" };
+  writingTopics[id.startsWith("agent-eng") ? 0 : id.startsWith("devtools-") ? 1 : id.startsWith("infra-") ? 2 : 3];

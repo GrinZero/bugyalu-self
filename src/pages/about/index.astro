@@ -1,17 +1,11 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import SkillWorkbench from "../../components/SkillWorkbench.astro";
 import PageHeader from "../../components/PageHeader.astro";
-import { education, experience, highlights, profile, skills } from "../../data/site";
-
-const levelColor = (level: string) =>
-  level.startsWith("A")
-    ? "text-accent border-accent/40"
-    : level.startsWith("B")
-      ? "text-mute border-line-strong"
-      : "text-faint border-line";
+import { education, experience, highlights, profile } from "../../data/site";
 ---
 
-<BaseLayout title="关于 — Bugyalu" description={`${profile.name}：${profile.role}。技能树、个人亮点、兴趣与联系方式，以及 MoeGo、米哈游、腾讯三段经历。`}>
+<BaseLayout title="关于 — Bugyalu" description={`${profile.name}：${profile.role}。专业能力、个人亮点、兴趣与联系方式，以及 MoeGo、米哈游、腾讯三段经历。`}>
   <section class="shell pb-24 pt-28 md:pt-36">
     <PageHeader
       eyebrow="About / the person"
@@ -86,32 +80,7 @@ const levelColor = (level: string) =>
       </ul>
     </div>
 
-    <div class="mt-20 grid gap-10 lg:grid-cols-[0.7fr_1.3fr]">
-      <div data-reveal>
-        <p class="eyebrow mb-4">Skill tree</p>
-        <h2 class="font-display text-[1.5rem] leading-snug text-ink">技能树，诚实版</h2>
-        <p class="mt-4 text-sm leading-7 text-mute">A 是能扛事的领域，B 是落地过真实项目，C 是学过但已经还给老师。</p>
-      </div>
-      <div class="card overflow-hidden" data-reveal>
-        <ul class="divide-y divide-line">
-          {
-            skills.map((skill) => (
-              <li class={`flex flex-wrap items-center gap-x-5 gap-y-1 px-5 py-3.5 ${skill.retired ? "opacity-40" : ""}`}>
-                <span class={`w-11 shrink-0 rounded-md border px-2 py-0.5 text-center font-mono text-xs ${levelColor(skill.level)}`}>
-                  {skill.level}
-                </span>
-                <span class={`text-[0.92rem] font-medium text-ink ${skill.retired ? "line-through" : ""}`}>
-                  {skill.name}
-                </span>
-                <span class="ml-auto max-w-[16rem] text-right font-mono text-[0.68rem] leading-5 text-faint">
-                  {skill.note}
-                </span>
-              </li>
-            ))
-          }
-        </ul>
-      </div>
-    </div>
+    <SkillWorkbench />
 
     <div class="mt-24" data-reveal>
       <p class="eyebrow mb-4">Work / field record</p>
@@ -134,7 +103,7 @@ const levelColor = (level: string) =>
 
             <div class="mt-6 space-y-4">
               {job.sections.map((section) => (
-                <section class="card p-6 md:p-7">
+                <section id={section.id} class="card scroll-mt-24 p-6 md:p-7">
                   <div class="flex flex-wrap items-baseline gap-x-4 gap-y-2">
                     <h4 class="font-display text-[1.15rem] text-ink">
                       <span class="mr-2">{section.icon}</span>{section.title}
@@ -145,7 +114,7 @@ const levelColor = (level: string) =>
 
                   <div class="mt-4 space-y-4">
                     {section.blocks.map((block) => (
-                      <div class="border-l border-line-strong pl-5">
+                      <div id={block.id} class="scroll-mt-24 border-l border-line-strong pl-5">
                         {block.lead && (
                           <p class="font-medium text-ink">
                             {block.lead}

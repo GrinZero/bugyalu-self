@@ -84,11 +84,11 @@ const kindLabel = {
         <h2 class="font-display text-2xl text-ink">
           手记<span class="ml-3 align-middle font-mono text-[0.68rem] tracking-[0.12em] text-faint uppercase">field notes</span>
         </h2>
-        <span class="font-mono text-xs text-faint">{posts.length} 篇</span>
+        <a href="/writing/" class="font-mono text-xs text-link transition-colors hover:text-accent">全部 {posts.length} 篇 →</a>
       </div>
       <div class="mt-4">
         {
-          posts.map((post, i) => {
+          posts.slice(0, 6).map((post, i) => {
             const s = series(post.id);
             return (
               <a
