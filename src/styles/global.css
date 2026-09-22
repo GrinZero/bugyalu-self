@@ -71,6 +71,7 @@
 }
 
 html {
+  scrollbar-gutter: stable;
   background: var(--bg);
   color: var(--ink);
   scroll-behavior: smooth;

@@ -1,7 +1,15 @@
 import * as THREE from "three";
+import { defaults, limits, parseRoomState, ROOM_STORAGE_KEY, wrapDegrees } from "./room-state";
+import { RoomAudio } from "./room-audio";
+import { mugPattern } from "./mug-pattern";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { createWorkstation } from "./workstation";
 
-/* A small night room: a desk by a window, warm lamp, hot coffee,
-   books, and a sky that can turn from night to morning. */
+/* Personal workstation by a window, with a warm lamp and a day/night sky. */
+
+// Window composition: positive moves right; 0 restores the original position.
+// Moves the opening, frame, sill, plant and sky together. Furniture stays put.
+const WINDOW_OFFSET_X = 1.27;
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -85,8 +93,9 @@ export function initRoom(canvas: HTMLCanvasElement) {
   scene.background = scene.fog.color;
 
   const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 40);
-  const camBase = new THREE.Vector3(0, 1.62, 4.35);
-  const camTarget = new THREE.Vector3(0, 1.16, -0.6);
+  // Center the frontal composition on the approved wooden desk position.
+  const camBase = new THREE.Vector3(defaults.deskX, 1.62, 4.35);
+  const camTarget = new THREE.Vector3(defaults.deskX, 1.16, -0.6);
   camera.position.copy(camBase);
   camera.lookAt(camTarget);
 
@@ -111,7 +120,7 @@ export function initRoom(canvas: HTMLCanvasElement) {
     depthWrite: false,
   });
   const sky = new THREE.Mesh(new THREE.PlaneGeometry(7, 4.4), skyMat);
-  sky.position.set(0, 2.1, -3.05);
+  sky.position.set(WINDOW_OFFSET_X, 2.1, -3.05);
   scene.add(sky);
 
   /* ── stars ── */
@@ -140,6 +149,7 @@ export function initRoom(canvas: HTMLCanvasElement) {
       opacity: 0.9,
     });
     const pts = new THREE.Points(geo, mat);
+    pts.position.x = WINDOW_OFFSET_X;
     starLayers.push(pts);
     scene.add(pts);
   }
@@ -161,7 +171,7 @@ export function initRoom(canvas: HTMLCanvasElement) {
   );
   moonGlow.scale.setScalar(1.15);
   moonGroup.add(moonGlow, moon);
-  moonGroup.position.set(0.62, 2.62, -2.92);
+  moonGroup.position.set(WINDOW_OFFSET_X + 0.62, 2.62, -2.92);
   scene.add(moonGroup);
 
   /* ── sun ── */
@@ -183,7 +193,7 @@ export function initRoom(canvas: HTMLCanvasElement) {
   );
   sunGlow.scale.setScalar(1.9);
   sunGroup.add(sunGlow, sun);
-  sunGroup.position.set(-0.55, 2.35, -2.92);
+  sunGroup.position.set(WINDOW_OFFSET_X - 0.55, 2.35, -2.92);
   scene.add(sunGroup);
 
   /* ── meteors ── */
@@ -209,16 +219,16 @@ export function initRoom(canvas: HTMLCanvasElement) {
   const wallMat = new THREE.MeshStandardMaterial({ color: WALL, roughness: 0.95 });
   const mkWall = (w: number, h: number, x: number, y: number) => {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), wallMat);
-    m.position.set(x, y, -2.6);
+    m.position.set(x + WINDOW_OFFSET_X, y, -2.6);
     m.receiveShadow = true;
     scene.add(m);
     return m;
   };
-  // window hole: x ∈ [-0.95, 0.95], y ∈ [1.32, 2.62]
-  mkWall(4.05, 5, -2.975, 2.5); // left of window
-  mkWall(4.05, 5, 2.975, 2.5); // right of window
+  // Window opening uses local x ∈ [-0.95, 0.95], translated by WINDOW_OFFSET_X.
+  mkWall(12, 20, -6.95, 2.5); // left of window
+  mkWall(12, 20, 6.95, 2.5); // right of window
   mkWall(1.9, 1.32, 0, 0.66); // under window
-  mkWall(1.9, 2.38, 0, 3.81); // above window
+  mkWall(1.9, 10, 0, 7.62); // above window
 
   const floorMat = new THREE.MeshStandardMaterial({ color: 0x2b241d, roughness: 0.9 });
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(14, 12), floorMat);
@@ -230,6 +240,7 @@ export function initRoom(canvas: HTMLCanvasElement) {
   /* window frame + mullions */
   const frameMat = new THREE.MeshStandardMaterial({ color: 0x54483a, roughness: 0.8 });
   const frame = new THREE.Group();
+  frame.position.x = WINDOW_OFFSET_X;
   const fw = 0.07;
   const fr = (w: number, h: number, x: number, y: number) => {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.1), frameMat);
@@ -247,20 +258,19 @@ export function initRoom(canvas: HTMLCanvasElement) {
   frame.add(sill);
   scene.add(frame);
 
-  /* ── desk ── */
-  const deskMat = new THREE.MeshStandardMaterial({ color: 0x6b5136, roughness: 0.7 });
-  const deskTop = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.09, 1.15), deskMat);
-  deskTop.position.set(0, 1.1, -1.55);
-  deskTop.castShadow = deskTop.receiveShadow = true;
-  scene.add(deskTop);
-  const sideMat = new THREE.MeshStandardMaterial({ color: 0x554026, roughness: 0.8 });
-  for (const x of [-1.5, 1.5]) {
-    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.09, 1.06, 0.95), sideMat);
-    leg.position.set(x, 0.53, -1.55);
-    leg.castShadow = leg.receiveShadow = true;
-    scene.add(leg);
-  }
-  const DESK = 1.145;
+  const workstation = createWorkstation(codeTexture());
+  workstation.root.getObjectByName("windowsill-plant")!.position.x += WINDOW_OFFSET_X;
+  scene.add(workstation.root);
+  const deskMat = workstation.wood;
+  let state = { ...defaults };
+  try { state = parseRoomState(localStorage.getItem(ROOM_STORAGE_KEY)); } catch { /* storage may be unavailable */ }
+  // Site theme is authoritative when restoring older, independently saved lamps.
+  state.lampOn = theme.target === 0;
+  const sounds = new RoomAudio();
+  const unlockSound = () => { try { sounds.unlock(); } catch { /* Web Audio unavailable */ } };
+  window.addEventListener("pointerdown", unlockSound, { passive: true });
+  window.addEventListener("keydown", unlockSound);
+  document.addEventListener("visibilitychange", () => sounds.configure(state.soundOn, state.purifierOn));
 
   /* ── lamp (the day/night switch) ── */
   const lampGroup = new THREE.Group();
@@ -310,24 +320,42 @@ export function initRoom(canvas: HTMLCanvasElement) {
   lampGlow.scale.setScalar(1.5);
   lampGlow.position.copy(bulb.position);
   lampGroup.add(lampBase, neck, arm1, elbow, arm2, headJoint, shade, bulb, lampGlow);
-  lampGroup.position.set(-1.2, DESK, -1.78);
+  lampGroup.position.set(-1.87, 1.245, -1.87);
+  lampGroup.scale.setScalar(1.12);
   lampGroup.rotation.y = -0.12;
   lampGroup.traverse((o) => {
     if (o instanceof THREE.Mesh) o.castShadow = true;
   });
+  const lampPivot = new THREE.Group();
+  lampPivot.position.copy(neck.position);
+  lampGroup.add(lampPivot);
+  for (const part of [arm1, elbow, arm2, headJoint, shade, bulb, lampGlow]) {
+    part.position.sub(lampPivot.position); lampPivot.add(part);
+  }
+  const lampElbowPivot = new THREE.Group();
+  lampElbowPivot.position.copy(elbow.position);
+  lampPivot.add(lampElbowPivot);
+  for (const part of [elbow, arm2, headJoint, shade, bulb, lampGlow]) {
+    part.position.sub(lampElbowPivot.position);
+    lampElbowPivot.add(part);
+  }
+  // Decorative glow has no physical hit area.
+  lampGlow.raycast = () => {};
   scene.add(lampGroup);
 
   const lampLight = new THREE.PointLight(0xffb168, 14, 0, 1.9);
-  lampLight.position.set(-0.82, 1.66, -1.72);
+  lampGroup.updateMatrixWorld(true);
+  bulb.getWorldPosition(lampLight.position);
   lampLight.castShadow = true;
   lampLight.shadow.mapSize.set(1024, 1024);
-  lampLight.shadow.bias = -0.004;
+  lampLight.shadow.bias = -0.001;
+  lampLight.shadow.normalBias = 0.035;
   scene.add(lampLight);
 
   /* ── mug + steam ── */
   const mugGroup = new THREE.Group();
   const mugMat = new THREE.MeshStandardMaterial({ color: 0xd8cfc0, roughness: 0.55 });
-  const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.048, 0.115, 24), mugMat);
+  const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.048, 0.115, 48), [new THREE.MeshStandardMaterial({ map: mugPattern(), roughness: 0.55 }), mugMat, mugMat]);
   mug.position.y = 0.058;
   const coffee = new THREE.Mesh(
     new THREE.CircleGeometry(0.048, 24),
@@ -339,11 +367,16 @@ export function initRoom(canvas: HTMLCanvasElement) {
   handle.position.set(0.058, 0.062, 0);
   handle.rotation.z = -Math.PI / 2;
   mugGroup.add(mug, coffee, handle);
-  mugGroup.position.set(0.72, DESK, -1.28);
+  mugGroup.position.copy(workstation.mugPosition);
+  mugGroup.scale.setScalar(1.45);
+  mugGroup.rotation.y = Math.PI;
   mugGroup.traverse((o) => {
     if (o instanceof THREE.Mesh) o.castShadow = true;
   });
   scene.add(mugGroup);
+  scene.updateMatrixWorld(true);
+  workstation.desk.attach(mugGroup);
+  const steamOrigin = new THREE.Vector3();
 
   const steamTex = radialTexture([
     [0, "rgba(255,255,255,0.5)"],
@@ -354,145 +387,11 @@ export function initRoom(canvas: HTMLCanvasElement) {
     const s = new THREE.Sprite(
       new THREE.SpriteMaterial({ map: steamTex, transparent: true, opacity: 0, depthWrite: false }),
     );
-    s.position.set(0.72, DESK + 0.14, -1.28);
+    s.position.copy(workstation.mugPosition);
+    s.position.y += 0.18;
     scene.add(s);
     return { s, off: i / 5 };
   });
-
-  /* ── books ── */
-  const bookColors = [0x8a5a52, 0x4f6f68, 0xb3a089];
-  const bookDims: [number, number, number][] = [
-    [0.42, 0.055, 0.3],
-    [0.38, 0.05, 0.27],
-    [0.33, 0.045, 0.24],
-  ];
-  let bookY = DESK;
-  const bookStack = new THREE.Group();
-  bookDims.forEach(([w, h, d], i) => {
-    const b = new THREE.Mesh(
-      new THREE.BoxGeometry(w, h, d),
-      new THREE.MeshStandardMaterial({ color: bookColors[i], roughness: 0.85 }),
-    );
-    b.position.set((Math.random() - 0.5) * 0.03, bookY + h / 2 - DESK, 0);
-    b.rotation.y = (Math.random() - 0.5) * 0.3;
-    b.castShadow = b.receiveShadow = true;
-    bookStack.add(b);
-    bookY += h;
-  });
-  bookStack.position.set(-0.35, DESK, -1.45);
-  scene.add(bookStack);
-  const bookTop = bookY;
-
-  // leaning books
-  const leanColors = [0x5a5f7a, 0x7a5a4a, 0x9c8a70];
-  const leanGroup = new THREE.Group();
-  leanColors.forEach((color, i) => {
-    const h = 0.3 - i * 0.03;
-    const b = new THREE.Mesh(
-      new THREE.BoxGeometry(0.045, h, 0.21),
-      new THREE.MeshStandardMaterial({ color, roughness: 0.85 }),
-    );
-    b.position.set(i * 0.06, h / 2, 0);
-    b.rotation.z = i === 2 ? -0.18 : i * 0.04;
-    b.castShadow = true;
-    leanGroup.add(b);
-  });
-  leanGroup.position.set(1.12, DESK, -1.62);
-  leanGroup.rotation.y = 0.2;
-  scene.add(leanGroup);
-
-  /* ── laptop ── */
-  const laptop = new THREE.Group();
-  const lapMat = new THREE.MeshStandardMaterial({ color: 0x8f959e, roughness: 0.4, metalness: 0.6 });
-  const lapBase = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.02, 0.37), lapMat);
-  lapBase.position.y = 0.01;
-  const lid = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.36, 0.018), lapMat);
-  lid.position.set(0, 0.18, -0.185);
-  lid.rotation.x = -0.32;
-  const screen = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.52, 0.32),
-    new THREE.MeshBasicMaterial({ map: codeTexture() }),
-  );
-  screen.position.set(0, 0.006, 0.0105);
-  lid.add(screen);
-  const screenGlow = new THREE.Sprite(
-    new THREE.SpriteMaterial({
-      map: radialTexture([
-        [0, "rgba(120,170,220,0.32)"],
-        [1, "rgba(120,170,220,0)"],
-      ]),
-      transparent: true,
-      depthWrite: false,
-    }),
-  );
-  screenGlow.scale.set(0.85, 0.6, 1);
-  screenGlow.position.set(0, 0.01, 0.06);
-  lid.add(screenGlow);
-  laptop.add(lapBase, lid);
-  laptop.position.set(0.05, DESK, -1.7);
-  laptop.rotation.y = -0.12;
-  laptop.traverse((o) => {
-    if (o instanceof THREE.Mesh) o.castShadow = true;
-  });
-  scene.add(laptop);
-
-  /* ── plant ── */
-  const plant = new THREE.Group();
-  const pot = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.07, 0.055, 0.1, 16),
-    new THREE.MeshStandardMaterial({ color: 0xa06b4d, roughness: 0.9 }),
-  );
-  pot.position.y = 0.05;
-  const leafMat = new THREE.MeshStandardMaterial({ color: 0x4d7a55, roughness: 0.85 });
-  const leaf1 = new THREE.Mesh(new THREE.SphereGeometry(0.075, 16, 12), leafMat);
-  leaf1.position.y = 0.16;
-  leaf1.scale.y = 0.8;
-  const leaf2 = new THREE.Mesh(new THREE.SphereGeometry(0.055, 16, 12), leafMat);
-  leaf2.position.set(0.05, 0.22, 0.02);
-  const leaf3 = new THREE.Mesh(new THREE.SphereGeometry(0.05, 16, 12), leafMat);
-  leaf3.position.set(-0.05, 0.2, -0.02);
-  plant.add(pot, leaf1, leaf2, leaf3);
-  plant.position.set(-1.42, DESK, -1.6);
-  plant.traverse((o) => {
-    if (o instanceof THREE.Mesh) o.castShadow = true;
-  });
-  scene.add(plant);
-
-  /* ── papers ── */
-  const paperMat = new THREE.MeshStandardMaterial({ color: 0xd9d4c8, roughness: 0.95 });
-  for (const [x, z, r] of [
-    [-0.85, -1.3, 0.3],
-    [-0.78, -1.34, -0.15],
-  ] as const) {
-    const p = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.004, 0.32), paperMat);
-    p.position.set(x, DESK + 0.003, z);
-    p.rotation.y = r;
-    p.receiveShadow = true;
-    scene.add(p);
-  }
-
-  /* ── ladybug on the books ── */
-  const bug = new THREE.Group();
-  const bugBody = new THREE.Mesh(
-    new THREE.SphereGeometry(0.02, 16, 12),
-    new THREE.MeshStandardMaterial({ color: 0xc2402e, roughness: 0.5 }),
-  );
-  bugBody.scale.y = 0.72;
-  const bugHead = new THREE.Mesh(
-    new THREE.SphereGeometry(0.009, 10, 8),
-    new THREE.MeshStandardMaterial({ color: 0x1c1c20, roughness: 0.5 }),
-  );
-  bugHead.position.set(0.02, -0.003, 0);
-  const antMat = new THREE.MeshBasicMaterial({ color: 0x1c1c20 });
-  const ant1 = new THREE.Mesh(new THREE.CylinderGeometry(0.0012, 0.0012, 0.018, 4), antMat);
-  ant1.position.set(0.028, 0.008, 0.005);
-  ant1.rotation.z = -0.8;
-  const ant2 = ant1.clone();
-  ant2.position.z = -0.005;
-  bug.add(bugBody, bugHead, ant1, ant2);
-  bug.position.set(-0.35, bookTop + 0.012, -1.42);
-  bug.rotation.y = 0.5;
-  scene.add(bug);
 
   /* ── dust motes in lamplight ── */
   const dustGeo = new THREE.BufferGeometry();
@@ -520,6 +419,8 @@ export function initRoom(canvas: HTMLCanvasElement) {
   /* ── lights ── */
   const ambient = new THREE.AmbientLight(0x33405c, 0.85);
   scene.add(ambient);
+  const fill = new THREE.HemisphereLight(0xc1cfe5, 0x59402a, 0.9);
+  scene.add(fill);
   const skyLight = new THREE.DirectionalLight(0x9fb8e8, 0.7);
   skyLight.position.set(0.4, 3.2, 1.2);
   skyLight.target.position.set(0, 1, -1.6);
@@ -541,9 +442,9 @@ export function initRoom(canvas: HTMLCanvasElement) {
     ambient.intensity = lerp(0.85, 1.5, m);
     skyLight.color.copy(tmp.copy(cNightSky).lerp(cDaySun, m));
     skyLight.intensity = lerp(0.7, 2.6, m);
-    lampLight.intensity = lerp(14, 0, m);
-    bulbMat.color.copy(tmp.copy(cNightBulb).lerp(cOffBulb, m));
-    lampGlow.material.opacity = lerp(0.9, 0, m);
+
+
+
     starLayers.forEach((l, i) => ((l.material as THREE.PointsMaterial).opacity = lerp(i === 0 ? 0.9 : 0.55, 0, m)));
     moonMat.opacity = lerp(1, 0, m);
     moonGlow.material.opacity = lerp(1, 0, m);
@@ -552,30 +453,246 @@ export function initRoom(canvas: HTMLCanvasElement) {
     dustMat.opacity = lerp(0.42, 0, m);
     wallMat.color.setHex(WALL).lerp(new THREE.Color(0xe9e1cf), m * 0.85);
     floorMat.color.setHex(0x332b21).lerp(new THREE.Color(0xa98d68), m * 0.75);
-    deskMat.color.setHex(0x6b5136).lerp(new THREE.Color(0x96754e), m * 0.55);
+    deskMat.color.setHex(0x985020).lerp(new THREE.Color(0xad6b35), m * 0.35);
   }
   applyTheme(theme.mix);
 
   window.addEventListener("themechange", (e) => {
     theme.target = (e as CustomEvent<string>).detail === "day" ? 1 : 0;
+    const lampOn = theme.target === 0;
+    if (state.lampOn !== lampOn) sounds.click();
+    state.lampOn = lampOn;
+    applyLayout(); saveLayout();
+  });
+  function syncThemeToLamp(lampOn: boolean) {
+    const next = lampOn ? 'night' : 'day';
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem('theme', next); } catch { /* rendering still works without storage */ }
+    window.dispatchEvent(new CustomEvent('themechange', { detail: next }));
+  }
+  function toggleLamp() { syncThemeToLamp(!state.lampOn); }
+
+  const controls = new OrbitControls(camera, canvas);
+  controls.enabled = false;
+  controls.enableDamping = true;
+  controls.enablePan = false;
+  controls.minDistance = 2.4;
+  controls.maxDistance = 8;
+  controls.minPolarAngle = 0.25;
+  controls.maxPolarAngle = Math.PI / 2 - 0.04;
+  controls.minAzimuthAngle = -Math.PI / 2;
+  controls.maxAzimuthAngle = Math.PI / 2;
+  controls.target.set(-0.45, 1.1, -1.5);
+  const viewButton = document.getElementById("room-view-toggle")!;
+  const toolbar = document.getElementById("room-toolbar")!;
+  const rad = THREE.MathUtils.degToRad;
+  const chairOffset = new THREE.Vector3();
+  const armLower = workstation.arm.getObjectByName('lower-arm') as THREE.Mesh;
+  const armUpper = workstation.arm.getObjectByName('upper-arm') as THREE.Mesh;
+  const armLengths = [0.447, 0.52];
+  // Preserve each segment's original local length, before any saved adjustment.
+  armLower.geometry.computeBoundingBox(); armUpper.geometry.computeBoundingBox();
+  armLengths[0] = armLower.geometry.boundingBox!.max.y - armLower.geometry.boundingBox!.min.y;
+  armLengths[1] = armUpper.geometry.boundingBox!.max.y - armUpper.geometry.boundingBox!.min.y;
+  const armJoints = workstation.arm.children.filter(o => o.name === 'hinge');
+  const setSegment = (mesh: THREE.Mesh, start: THREE.Vector3, end: THREE.Vector3, length: number) => {
+    const delta = end.clone().sub(start);
+    mesh.position.copy(start).add(end).multiplyScalar(0.5);
+    mesh.scale.y = delta.length() / length;
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), delta.normalize());
+  };
+  function applyLayout() {
+    workstation.desk.position.set(state.deskX, 0, state.deskZ);
+    workstation.desk.rotation.y = rad(state.deskAngle);
+    // The chair fits inside the open U-base, below the apron, without scaling on tuck.
+    chairOffset.set(0, 0, lerp(0.94, 0, state.chairIn)).applyAxisAngle(new THREE.Vector3(0, 1, 0), rad(state.deskAngle));
+    workstation.chair.position.copy(workstation.desk.position).add(chairOffset);
+    workstation.chair.rotation.y = rad(state.deskAngle);
+    lampGroup.rotation.y = rad(state.lampAngle);
+    lampPivot.rotation.z = rad(state.lampTilt);
+    lampElbowPivot.rotation.z = rad(state.lampElbow);
+    const anchor = new THREE.Vector3(-1.12, 1.25, -1.71);
+    const swivel = rad(state.armAngle);
+    const endpoint = new THREE.Vector3(0.1, state.armHeight, 0.14).applyAxisAngle(new THREE.Vector3(0, 1, 0), swivel).add(anchor);
+    const elbowPoint = new THREE.Vector3(-0.38, state.armHeight * 0.5, -0.05).applyAxisAngle(new THREE.Vector3(0, 1, 0), swivel).add(anchor);
+    setSegment(armLower, anchor, elbowPoint, armLengths[0]);
+    setSegment(armUpper, elbowPoint, endpoint, armLengths[1]);
+    [anchor, elbowPoint, endpoint].forEach((position, index) => armJoints[index].position.copy(position));
+    workstation.tablet.position.copy(endpoint);
+    workstation.tablet.position.z += 0.075;
+    workstation.tablet.rotation.set(rad(state.screenTilt), rad(state.screenYaw), 0);
+    workstation.indicator.material.color.setHex(state.purifierOn ? 0xffffff : 0x080808);
+    workstation.statusLight.material.color.setHex(state.purifierOn ? 0x71e69e : 0x16241b);
+    sounds.configure(state.soundOn, state.purifierOn);
+  }
+  function saveLayout() {
+    try {
+      localStorage.setItem(ROOM_STORAGE_KEY, JSON.stringify({ version: 1, state }));
+    } catch { console.warn('Room layout could not be saved: browser storage unavailable.'); }
+  }
+  document.getElementById('room-reset')!.addEventListener('click', () => {
+    state = { ...defaults }; syncThemeToLamp(state.lampOn); sounds.click();
+  });
+  applyLayout();
+  let exploring = false;
+  function setExplore(active: boolean) {
+    exploring = active;
+    controls.enabled = active;
+    canvas.style.pointerEvents = active ? "auto" : "none";
+    canvas.style.zIndex = active ? "30" : "";
+    canvas.style.touchAction = active ? "none" : "";
+    // Keep the document scrollbar and viewport dimensions unchanged.
+    // The canvas consumes orbit wheel/touch gestures while exploring.
+    toolbar.hidden = !active;
+    if (active) {
+      // Keep the exact current view; entering only changes who controls it.
+      controls.target.copy(camTarget);
+      controls.update();
+    } else {
+      // Flush orbit inertia before restoring the default view, so the next
+      // entry cannot inherit the previous drag's residual movement.
+      controls.enableDamping = false;
+      controls.update();
+      controls.enableDamping = true;
+      camera.position.copy(camBase);
+      camera.lookAt(camTarget);
+    }
+    document.body.style.cursor = "";
+  }
+  viewButton.addEventListener("click", () => setExplore(false));
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && exploring) setExplore(false);
   });
 
-  /* ── pointer: parallax + lamp click ── */
   const pointer = new THREE.Vector2(0, 0);
   const ray = new THREE.Raycaster();
-  const lampHitTargets: THREE.Object3D[] = [lampBase, arm1, arm2, elbow, headJoint, shade, bulb];
-  let hoveringLamp = false;
-  window.addEventListener("pointermove", (e) => {
-    pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
-    pointer.y = -((e.clientY / window.innerHeight) * 2 - 1);
-    ray.setFromCamera(pointer, camera);
-    hoveringLamp = ray.intersectObjects(lampHitTargets, false).length > 0;
-    document.body.style.cursor = hoveringLamp ? "pointer" : "";
-  });
-  window.addEventListener("pointerdown", (e) => {
-    if (hoveringLamp && !(e.target as HTMLElement).closest("a,button")) {
-      (window as any).__toggleTheme?.();
+  const objects = { lamp: lampGroup, desk: workstation.desk, chair: workstation.chair, arm: workstation.arm, purifier: workstation.purifier };
+  type ObjectName = keyof typeof objects;
+  function pointRay(e: { clientX: number; clientY: number }) {
+    const bounds = canvas.getBoundingClientRect();
+    ray.setFromCamera(new THREE.Vector2((e.clientX - bounds.left) / bounds.width * 2 - 1, -(e.clientY - bounds.top) / bounds.height * 2 + 1), camera);
+  }
+  function hitObject(e: { clientX: number; clientY: number }) {
+    pointRay(e);
+    const hit = ray.intersectObjects(Object.values(objects), true).find(hit => hit.object instanceof THREE.Mesh);
+    if (!hit) return null;
+    for (const [name, group] of Object.entries(objects)) {
+      let object: THREE.Object3D | null = hit.object;
+      let screen = false;
+      let upperLamp = false;
+      while (object) {
+        if (object === workstation.tablet) screen = true;
+        if (object === lampElbowPivot) upperLamp = true;
+        if (object === group) return { name: name as ObjectName, screen, upperLamp, light: hit.object === shade || hit.object === bulb };
+        object = object.parent;
+      }
     }
+    return null;
+  }
+  // A small halo target around the bulb, only outside exploration mode.
+  // Physical objects always win, so this cannot steal clicks from the arm.
+  const lightHitSphere = new THREE.Sphere(new THREE.Vector3(), 0.12);
+  function hitLampLight(hit: ReturnType<typeof hitObject>) {
+    if (hit?.light) return true;
+    if (hit) return false;
+    bulb.getWorldPosition(lightHitSphere.center);
+    return ray.ray.intersectsSphere(lightHitSphere);
+  }
+  const ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  function floorPoint(e: { clientX: number; clientY: number }, height = 0) {
+    ground.constant = -height;
+    pointRay(e); return ray.ray.intersectPlane(ground, new THREE.Vector3());
+  }
+  let gesture: { id: number; name: ObjectName; screen: boolean; upperLamp: boolean; start: THREE.Vector2; ground: THREE.Vector3 | null; height: number; initial: typeof state; moved: boolean; rotate: boolean } | null = null;
+  let pressed = new THREE.Vector2();
+  // Capture object gestures before OrbitControls sees them. Empty space still orbits.
+  canvas.addEventListener('pointerdown', e => {
+    if (!exploring || gesture) return;
+    const hit = hitObject(e); if (!hit) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    controls.enabled = false;
+    gesture = { ...hit, id: e.pointerId, start: new THREE.Vector2(e.clientX, e.clientY), ground: floorPoint(e, hit.name === 'desk' ? 1.1 : 0.5), height: hit.name === 'desk' ? 1.1 : 0.5, initial: { ...state }, moved: false, rotate: e.shiftKey || e.button === 2 };
+    canvas.setPointerCapture(e.pointerId);
+    canvas.style.cursor = hit.name === 'purifier' ? 'pointer' : 'grabbing';
+  }, true);
+  canvas.addEventListener('contextmenu', e => { if (exploring) e.preventDefault(); });
+  canvas.addEventListener('pointermove', e => {
+    if (!gesture || e.pointerId !== gesture.id) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    const dx = e.clientX - gesture.start.x, dy = e.clientY - gesture.start.y;
+    if (Math.hypot(dx, dy) < 5 && !gesture.moved) return;
+    gesture.moved = true;
+    const initial = gesture.initial;
+    const current = floorPoint(e, gesture.height);
+    const delta = current && gesture.ground ? current.sub(gesture.ground) : new THREE.Vector3();
+    if (gesture.name === 'desk') {
+      if (gesture.rotate) state.deskAngle = THREE.MathUtils.clamp(initial.deskAngle + dx * 0.4, -90, 90);
+      else {
+        state.deskX = THREE.MathUtils.clamp(initial.deskX + delta.x, limits.deskX[0], limits.deskX[1]);
+        state.deskZ = THREE.MathUtils.clamp(initial.deskZ + delta.z, limits.deskZ[0], limits.deskZ[1]);
+      }
+      sounds.roll();
+      workstation.desk.traverse(o => { if (o.name === 'caster-wheel') o.rotateY((e.movementX + e.movementY) * 0.03); });
+    } else if (gesture.name === 'chair') {
+      const forward = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), rad(state.deskAngle));
+      state.chairIn = THREE.MathUtils.clamp(initial.chairIn - delta.dot(forward) / 0.94, 0, 1);
+      sounds.roll();
+    } else if (gesture.name === 'lamp') {
+      if (gesture.upperLamp) {
+        state.lampElbow = THREE.MathUtils.clamp(initial.lampElbow - dy * 0.4 + dx * 0.2, -50, 45);
+      } else {
+        state.lampAngle = THREE.MathUtils.clamp(initial.lampAngle + dx * 0.6, -100, 100);
+        state.lampTilt = THREE.MathUtils.clamp(initial.lampTilt - dy * 0.3, -25, 30);
+      }
+    } else if (gesture.name === 'arm') {
+      if (gesture.screen) {
+        state.screenYaw = wrapDegrees(initial.screenYaw + dx * 0.6);
+        state.screenTilt = THREE.MathUtils.clamp(initial.screenTilt + dy * 0.4, limits.screenTilt[0], limits.screenTilt[1]);
+      } else {
+        state.armHeight = THREE.MathUtils.clamp(initial.armHeight - dy * 0.004, 0.3, 0.85);
+        state.armAngle = wrapDegrees(initial.armAngle + dx * 0.5);
+      }
+    }
+    applyLayout(); saveLayout();
+  }, true);
+  const finishGesture = (e: PointerEvent) => {
+    if (!gesture || e.pointerId !== gesture.id) return;
+    e.stopImmediatePropagation();
+    if (!gesture.moved && e.type === 'pointerup') {
+      if (gesture.name === 'lamp') toggleLamp();
+      if (gesture.name === 'purifier') { state.purifierOn = !state.purifierOn; sounds.click(); }
+      if (gesture.name === 'chair') { state.chairIn = state.chairIn > 0.5 ? 0 : 1; sounds.roll(); }
+      applyLayout(); saveLayout();
+    }
+    if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+    gesture = null; controls.enabled = exploring; canvas.style.cursor = 'grab';
+  };
+  canvas.addEventListener('pointerup', finishGesture, true);
+  canvas.addEventListener('pointercancel', finishGesture, true);
+  canvas.addEventListener('wheel', e => {
+    if (!exploring || hitObject(e)?.name !== 'lamp') return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    state.lampBrightness = THREE.MathUtils.clamp(state.lampBrightness - e.deltaY * 0.001, 0.2, 1.4);
+    applyLayout(); saveLayout();
+  }, { capture: true, passive: false });
+  window.addEventListener('pointerdown', e => pressed.set(e.clientX, e.clientY));
+  window.addEventListener('pointermove', e => {
+    if (gesture) return;
+    const hit = hitObject(e);
+    if (exploring) { canvas.style.cursor = hit?.name === 'purifier' ? 'pointer' : 'grab'; return; }
+    pointer.set(e.clientX / window.innerWidth * 2 - 1, -e.clientY / window.innerHeight * 2 + 1);
+    document.body.style.cursor = window.scrollY < window.innerHeight * 0.65 && (hit || hitLampLight(hit)) ? 'pointer' : '';
+  });
+  window.addEventListener('pointerup', e => {
+    if (exploring || pressed.distanceTo(new THREE.Vector2(e.clientX, e.clientY)) > 6) return;
+    if ((e.target as HTMLElement).closest('a,button,input') || window.scrollY > window.innerHeight * 0.65) return;
+    const hit = hitObject(e);
+    if (hitLampLight(hit)) {
+      toggleLamp();
+      return;
+    }
+    const other = ray.intersectObjects([frame, workstation.root.getObjectByName('white-high-table')!, workstation.root.getObjectByName('windowsill-plant')!], true).length;
+    if (hit || other) setExplore(true);
   });
 
   /* ── resize ── */
@@ -584,6 +701,8 @@ export function initRoom(canvas: HTMLCanvasElement) {
     const h = canvas.clientHeight || window.innerHeight;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
+    // Keep the full workstation in portrait screens as well as desktop.
+    camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(46 / 2)) * Math.max(1, 1.12 / camera.aspect)));
     camera.updateProjectionMatrix();
   }
   resize();
@@ -596,7 +715,7 @@ export function initRoom(canvas: HTMLCanvasElement) {
   /* ── main loop ── */
   const timer = new THREE.Timer();
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  let bugTimer = 4;
+
 
   function tick() {
     timer.update();
@@ -610,20 +729,29 @@ export function initRoom(canvas: HTMLCanvasElement) {
 
     // camera: breathing + pointer parallax
     const breathe = reduceMotion ? 0 : Math.sin(t * 0.45) * 0.012;
+    if (exploring) {
+      if (controls.enabled) controls.update();
+    } else {
     camera.position.x = lerp(camera.position.x, camBase.x + pointer.x * 0.24, 0.05);
     camera.position.y = lerp(camera.position.y, camBase.y + pointer.y * 0.1 + breathe, 0.05);
     camera.lookAt(camTarget);
+    }
 
     // lamp flicker
     const flick = 1 + Math.sin(t * 17.3) * 0.015 + Math.sin(t * 5.7) * 0.02;
-    lampLight.intensity = lerp(14, 0, theme.mix) * flick;
-    lampGlow.material.opacity = lerp(0.9, 0, theme.mix) * (0.92 + 0.08 * Math.sin(t * 9.1));
+    lampGroup.updateMatrixWorld(true);
+    bulb.getWorldPosition(lampLight.position);
+    lampLight.intensity = lerp(14, 0, theme.mix) * state.lampBrightness * flick;
+    lampGlow.material.opacity = lerp(0.65, 0, theme.mix) * state.lampBrightness;
+    bulbMat.color.copy(cNightBulb).lerp(cOffBulb, theme.mix);
+    mugGroup.getWorldPosition(steamOrigin);
 
     // steam
     for (const st of steams) {
       const p = (t * 0.22 + st.off) % 1;
-      st.s.position.y = DESK + 0.12 + p * 0.5;
-      st.s.position.x = 0.72 + Math.sin(t * 1.4 + st.off * 9) * 0.02 * p;
+      st.s.position.y = steamOrigin.y + 0.18 + p * 0.5;
+      st.s.position.z = steamOrigin.z;
+      st.s.position.x = steamOrigin.x + Math.sin(t * 1.4 + st.off * 9) * 0.02 * p;
       st.s.scale.setScalar(0.05 + p * 0.1);
       st.s.material.opacity = Math.sin(p * Math.PI) * 0.4 * (1 - theme.mix * 0.3);
     }
@@ -639,7 +767,7 @@ export function initRoom(canvas: HTMLCanvasElement) {
       m.t += dt;
       if (m.t > 0 && m.t < 0.9) {
         const p = m.t / 0.9;
-        m.s.position.x = -1.1 + p * 1.7;
+        m.s.position.x = WINDOW_OFFSET_X - 1.1 + p * 1.7;
         m.s.position.y = 2.9 - p * 0.75;
         m.s.material.opacity = Math.sin(p * Math.PI) * 0.9 * (1 - theme.mix);
       } else if (m.t > 0.9) {
@@ -656,22 +784,6 @@ export function initRoom(canvas: HTMLCanvasElement) {
       dp.setX(i, -0.9 + ((ph * 7 + t * 0.03) % 1.4));
     }
     dp.needsUpdate = true;
-
-    // ladybug: occasional shuffle around the book top
-    bugTimer -= dt;
-    if (bugTimer < 0) {
-      bugTimer = 5 + Math.random() * 9;
-      bug.rotation.y += (Math.random() - 0.5) * 1.6;
-      bug.position.x += (Math.random() - 0.5) * 0.04;
-      bug.position.x = THREE.MathUtils.clamp(bug.position.x, -0.48, -0.22);
-      bug.position.z = THREE.MathUtils.clamp(
-        bug.position.z + (Math.random() - 0.5) * 0.03,
-        -1.52,
-        -1.34,
-      );
-    }
-    ant1.rotation.x = Math.sin(t * 6) * 0.4;
-    ant2.rotation.x = Math.sin(t * 6 + 1) * 0.4;
 
     if (visible && !document.hidden) renderer.render(scene, camera);
     requestAnimationFrame(tick);

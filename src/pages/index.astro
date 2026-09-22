@@ -26,7 +26,7 @@ const kindLabel = {
   <Room />
 
   <!-- first screen: the room -->
-  <section class="relative z-10 flex h-[100svh] flex-col justify-end">
+  <section class="relative z-10 flex h-[calc(100svh+12rem)] flex-col justify-end">
     <div
       class="pointer-events-none absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-bg via-bg/60 to-transparent"
     >
@@ -46,7 +46,7 @@ const kindLabel = {
         data-reveal
         style="--reveal-delay:180ms"
       >
-        <span class="only-night">桌上有热咖啡和没读完的书，窗外有星星。我把项目、笔记和正在形成的想法都堆在这里。</span>
+        <span class="only-night">桌上有热咖啡和打开的电脑，窗外有星星。我把项目、笔记和正在形成的想法都堆在这里。</span>
         <span class="only-day">阳光进屋了，咖啡还是热的。我把项目、笔记和正在形成的想法都堆在这里。</span>
       </p>
       <div
@@ -56,8 +56,8 @@ const kindLabel = {
       >
         <span class="inline-flex items-center gap-2">
           <span class="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-accent"></span>
-          <span class="only-night">点一下台灯，天就亮了</span>
-          <span class="only-day">再点一下台灯，回到夜里</span>
+          <span class="only-night">点击工作台，摆弄一下</span>
+          <span class="only-day">点击工作台，摆弄一下</span>
         </span>
         <span aria-hidden="true">·</span>
         <span>往下翻是笔记</span>
