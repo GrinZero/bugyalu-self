@@ -1,0 +1,22 @@
+---
+import type { AstroComponentFactory } from 'astro/runtime/server/index.js';
+import { getCollection } from 'astro:content';
+import Home from '../index.astro';
+import About from '../about/index.astro';
+import Writing from '../writing/index.astro';
+import Projects from '../projects/index.astro';
+import Post from '../writing/[...slug].astro';
+import Project from '../projects/[...slug].astro';
+export async function getStaticPaths() {
+  const posts = await getCollection('posts');
+  const projects = await getCollection('projects');
+  return ['en'].flatMap(locale => [
+    ...[undefined, 'about', 'writing', 'projects'].map(path => ({params: {locale, path}, props: {kind: path || 'home'}})),
+    ...posts.map(post => ({params: {locale, path: `writing/${post.id}`}, props: {kind: 'post', post}})),
+    ...projects.map(project => ({params: {locale, path: `projects/${project.id}`}, props: {kind: 'project', project}})),
+  ]);
+}
+const components: Record<string, AstroComponentFactory> = {home: Home, about: About, writing: Writing, projects: Projects, post: Post, project: Project};
+const Page = components[Astro.props.kind as keyof typeof components];
+---
+<Page {...Astro.props} />

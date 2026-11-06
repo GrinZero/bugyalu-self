@@ -66,12 +66,14 @@ const date = (d: Date) => d.toISOString().slice(0, 10).replaceAll("-", ".");
 </writing-archive>
 
 <script>
+  import { localeFromPath } from "../i18n/routing";
   import { gsap } from "gsap";
 
   class WritingArchive extends HTMLElement {
     private dispose?: () => void;
 
     connectedCallback() {
+      const english = localeFromPath(location.pathname) === "en";
       const entries = Array.from(this.querySelectorAll<HTMLElement>(".article-entry"));
       const filters = Array.from(this.querySelectorAll<HTMLButtonElement>("[data-topic][type=button]"));
       const pages = Array.from(this.querySelectorAll<HTMLButtonElement>("[data-page]"));
@@ -118,7 +120,7 @@ const date = (d: Date) => d.toISOString().slice(0, 10).replaceAll("-", ".");
         gsap.set(list, { clearProps: "all" });
         const oldHeight = list.offsetHeight;
         const terms = query.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
-        const matched = entries.filter(entry => (topic === "all" || entry.dataset.topic === topic) && terms.every(term => entry.dataset.search!.includes(term)));
+        const matched = entries.filter(entry => (topic === "all" || entry.dataset.topic === topic) && terms.every(term => entry.dataset.search!.toLocaleLowerCase().includes(term)));
         totalPages = Math.max(1, Math.ceil(matched.length / pageSize));
         page = Math.min(page, totalPages);
         const visible = matched.slice((page - 1) * pageSize, page * pageSize);
@@ -126,7 +128,9 @@ const date = (d: Date) => d.toISOString().slice(0, 10).replaceAll("-", ".");
         empty.hidden = matched.length > 0;
         pagination.hidden = totalPages <= 1;
         clear.hidden = topic === "all" && !query;
-        status.textContent = matched.length ? `${matched.length} 篇手记 · 第 ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, matched.length)} 篇` : "0 篇匹配的手记";
+        status.textContent = english
+          ? matched.length ? `${matched.length} notes · ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, matched.length)}` : "No matching notes"
+          : matched.length ? `${matched.length} 篇手记 · 第 ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, matched.length)} 篇` : "0 篇匹配的手记";
         filters.forEach(button => button.setAttribute("aria-pressed", String(button.dataset.topic === topic)));
         pages.forEach(button => {
           button.hidden = Number(button.dataset.page) > totalPages;
@@ -136,7 +140,7 @@ const date = (d: Date) => d.toISOString().slice(0, 10).replaceAll("-", ".");
         previous.disabled = page === 1;
         next.disabled = page === totalPages;
         moveIndicator(animate);
-        if (animate && !reduced.matches) {
+        if (animate && !reduced.matches && visible.length > 0) {
           const height = list.offsetHeight;
           animation = gsap.timeline()
             .fromTo(list, { height: oldHeight, overflow: "hidden" }, { height, duration: .4, ease: "power3.inOut", clearProps: "height,overflow" })

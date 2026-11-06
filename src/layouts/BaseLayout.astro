@@ -1,5 +1,7 @@
 ---
 import "../styles/global.css";
+import LanguageSwitcher from "../components/LanguageSwitcher.astro";
+import { localeFromPath, sourcePath, localizedPath } from "../i18n/routing";
 import { nav, profile } from "../data/site";
 
 interface Props {
@@ -12,12 +14,13 @@ const {
   description = `${profile.name}的个人空间：技术笔记、项目和一些正在形成的想法。`,
 } = Astro.props;
 
-const pathname = Astro.url.pathname;
+const pathname = sourcePath(Astro.url.pathname);
+const locale = localeFromPath(Astro.url.pathname);
 const isActive = (href: string) => pathname.startsWith(href);
 ---
 
 <!doctype html>
-<html lang="zh-CN" data-theme="night">
+<html lang={locale} data-theme="night">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
@@ -29,16 +32,37 @@ const isActive = (href: string) => pathname.startsWith(href);
       href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css"
     />
     <script is:inline>
-      const saved = localStorage.getItem("theme");
+      let saved;
+      try { saved = localStorage.getItem("theme"); } catch {}
       document.documentElement.dataset.theme = saved === "day" ? "day" : "night";
       window.__toggleTheme = () => {
         const next =
           document.documentElement.dataset.theme === "night" ? "day" : "night";
         document.documentElement.dataset.theme = next;
-        localStorage.setItem("theme", next);
+        try { localStorage.setItem("theme", next); } catch {}
         window.dispatchEvent(new CustomEvent("themechange", { detail: next }));
       };
     </script>
+    <link rel="alternate" hreflang="zh-CN" href={localizedPath(pathname, 'zh-CN')} />
+    <link rel="alternate" hreflang="en" href={localizedPath(pathname, 'en')} />
+    <link rel="alternate" hreflang="x-default" href={pathname} />
+    <script is:inline>
+      // Explicit language URLs are shareable; detect only on the default routes.
+      if (!/^\/en(?:\/|$)/.test(location.pathname)) {
+        let saved;
+        try { saved = localStorage.getItem('language'); } catch {}
+        const explicit = new URLSearchParams(location.search).get('lang');
+        if (explicit === 'en' || explicit === 'zh-CN') {
+          saved = explicit;
+          try { localStorage.setItem('language', explicit); } catch {}
+        }
+        const languages = navigator.languages || [navigator.language];
+        const supported = languages.find(value => /^(zh|en)(-|$)/i.test(value));
+        const language = saved === 'en' || saved === 'zh-CN' ? saved : /^zh/i.test(supported || '') ? 'zh-CN' : 'en';
+        if (language === 'en') location.replace('/en' + location.pathname + location.search + location.hash);
+      }
+    </script>
+    <noscript><style is:inline>[data-reveal] { opacity: 1 !important; transform: none !important; } [data-language-auto] { display: none; }</style></noscript>
     <title>{title}</title>
   </head>
   <body>
@@ -75,6 +99,7 @@ const isActive = (href: string) => pathname.startsWith(href);
             ))
           }
         </nav>
+        <LanguageSwitcher />
         <button
           id="theme-toggle"
           type="button"
@@ -117,7 +142,7 @@ const isActive = (href: string) => pathname.startsWith(href);
             }
           }
         },
-        { threshold: 0.08, rootMargin: "0px 0px -4% 0px" },
+        { threshold: 0, rootMargin: "0px 0px -4% 0px" },
       );
       document.querySelectorAll("[data-reveal]").forEach((el) => io.observe(el));
     </script>

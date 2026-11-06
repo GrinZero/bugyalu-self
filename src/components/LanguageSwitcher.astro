@@ -1,0 +1,65 @@
+---
+import { localeFromPath, localizedPath } from '../i18n/routing';
+const locale = localeFromPath(Astro.url.pathname);
+---
+<details class="language-menu" translate="no">
+  <summary aria-label={locale === 'en' ? 'Choose language' : '选择语言'}>{locale === 'en' ? 'EN' : '中'}</summary>
+  <div class="language-options">
+    <a data-language-link="zh-CN" href={localizedPath(Astro.url.pathname, 'zh-CN')} lang="zh-CN" aria-current={locale === 'zh-CN' ? 'true' : undefined}>简体中文</a>
+    <a data-language-link="en" href={localizedPath(Astro.url.pathname, 'en')} lang="en" aria-current={locale === 'en' ? 'true' : undefined}>English</a>
+    <button type="button" data-language-auto>{locale === 'en' ? 'Auto (browser)' : '自动（跟随浏览器）'}</button>
+  </div>
+</details>
+<script>
+  import { localizedPath, preferredLocale, localeFromPath } from '../i18n/routing';
+  import type { Locale } from '../i18n/routing';
+  const explicit = new URLSearchParams(location.search).get('lang');
+  if (explicit === 'zh-CN' || explicit === 'en') {
+    try { localStorage.setItem('language', localeFromPath(location.pathname)); }
+    catch {
+      // Keep explicit choices usable even in browsers that block storage.
+      document.querySelectorAll<HTMLAnchorElement>('a[href^="/"]:not([data-language-link])').forEach(link => {
+        const url = new URL(link.href);
+        if (url.origin !== location.origin) return;
+        url.searchParams.set('lang', localeFromPath(location.pathname));
+        link.href = url.href;
+      });
+    }
+  }
+  const links = document.querySelectorAll<HTMLAnchorElement>('[data-language-link]');
+  const updateLinks = () => links.forEach(link => {
+    const url = new URL(location.href);
+    url.pathname = localizedPath(url.pathname, link.dataset.languageLink as Locale);
+    url.searchParams.set('lang', link.dataset.languageLink!);
+    link.href = url.href;
+  });
+  updateLinks();
+  document.querySelector('details.language-menu')?.addEventListener('toggle', updateLinks);
+  window.addEventListener('popstate', updateLinks);
+  window.addEventListener('hashchange', updateLinks);
+  links.forEach(link => link.addEventListener('click', () => {
+    updateLinks();
+    try { localStorage.setItem('language', link.dataset.languageLink!); } catch {}
+  }));
+  document.querySelector('[data-language-auto]')?.addEventListener('click', () => {
+    try { localStorage.removeItem('language'); } catch {}
+    const locale: Locale = preferredLocale(navigator.languages || [navigator.language]);
+    const url = new URL(location.href);
+    url.pathname = localizedPath(url.pathname, locale);
+    url.searchParams.delete('lang');
+    location.assign(url);
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') document.querySelector('details.language-menu')?.removeAttribute('open');
+  });
+</script>
+<style>
+  .language-menu { position: relative; font-size: .75rem; color: var(--ink-2); }
+  summary { cursor: pointer; list-style: none; padding: .45rem; border-radius: 1rem; }
+  summary::-webkit-details-marker { display: none; }
+  summary:focus-visible { outline: 2px solid var(--accent); }
+  .language-options { position: absolute; right: 0; top: calc(100% + .75rem); min-width: 10rem; padding: .4rem; border: 1px solid var(--line-strong); border-radius: .8rem; background: var(--bg); box-shadow: 0 8px 32px #0003; }
+  a, button { display: block; width: 100%; padding: .65rem; text-align: left; border-radius: .4rem; cursor: pointer; white-space: nowrap; }
+  a:hover, button:hover { background: var(--soft); }
+  a[aria-current] { color: var(--accent); }
+</style>

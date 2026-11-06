@@ -1,0 +1,25 @@
+---
+title: "云端 QA Agent 与评测体系"
+tagline: "把需求分析、用例评审与执行反馈沉淀为团队可复用经验"
+description: "把需求分析、用例评审与执行反馈沉淀为团队可复用经验"
+icon: "🧪"
+kind: "internal"
+tags: ["Mastra", "Sandbox", "Golden Dataset", "Eval"]
+order: 6
+---
+
+## 云端 QA Agent 与运行架构
+
+设计 API / Worker / Sandbox 服务器架构与沙箱执行隔离方案，推动内部 QA Agent 从 n8n 工作流向 TypeScript/Mastra 演进，落地 MoeGo 首个云端 Agent，并面向内部 QA 用户持续生产运行。
+
+围绕需求分析、用例评审和执行反馈组织 Agent 工作流，支持测试任务处理与团队经验复用，将 Agent 的运行架构、执行隔离和实际 QA 协作场景结合起来。
+
+## QA Agent 评测体系与团队经验闭环
+
+围绕内部 QA Agent 建设“需求分析—候选用例—逐条评审—修改反馈—分项评分—执行证据回流”的质量闭环，将个人 QA 经验持续沉淀为团队可复用经验，支持测试设计与 Agent 能力迭代。
+
+整理真实 QA 会话与执行轨迹，建设统一 Golden Dataset，并派生适配 Mastra、Datadog 的评测格式。结合逐 Case Review、修改反馈与分项 Scorer，从关键行为覆盖、禁止行为约束和执行轨迹可信度等维度组织回归评估，使评测能够定位具体用例和行为层面的问题。
+
+为评测实验建立工具调用边界：写操作采用 mock，读操作按明确分类接入；对未分类的新工具阻断实验构建或导入，避免工具扩展时意外执行真实写入。区分用于回归验证的 Golden Case 与经过审核的正式 QA 经验，保留样本来源和纳入、排除依据。
+
+Golden Dataset 与 Scorers 已合入主干。核心 QA Agent 持续服务内部 QA 用户，通过需求分析、用例评审和执行反馈推动团队经验复用；相关实践将 E2E 环节耗时从一个下午缩短至约 1 小时。

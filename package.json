@@ -1,13 +1,16 @@
 {
   "name": "bugyalu-self",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro check && astro build",
+    "build": "astro check && astro build && node scripts/i18n-catalog.mjs --check",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "i18n:extract": "astro build && node scripts/i18n-catalog.mjs",
+    "i18n:check": "node scripts/i18n-catalog.mjs --check",
+    "test:i18n": "node --test scripts/i18n.test.mjs"
   },
   "dependencies": {
     "@astrojs/mdx": "^8.0.1",
@@ -16,6 +19,7 @@
     "astro": "^7.3.3",
     "gsap": "^3.15.0",
     "motion": "^13.4.0",
+    "parse5": "^8.1.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "tailwindcss": "^4.3.3",

@@ -1,0 +1,21 @@
+---
+title: "LOOI 机器人与本地智能 App"
+tagline: "从 BLE 协议研究到语音、感知与设备工具调用"
+description: "从 BLE 协议研究到语音、感知与设备工具调用"
+icon: "🤖"
+kind: "experiment"
+tags: ["BLE", "TypeScript", "Expo", "React Native", "Tool Calling"]
+order: 9
+---
+
+## 协议与控制
+
+研究蓝牙 HCI / BLE 通信，逆向机器人握手、特征值和控制指令，将移动、头部、灯光与吸附状态等能力封装为 TypeScript SDK。
+
+## 本地智能 App
+
+基于 Expo / React Native 开发机器人 App，组织语音唤醒、VAD / STT / TTS、视觉感知、记忆、提醒与 LLM 工具调用。实现 BLE 握手、吸附状态监听、动作租约与断线撤销 / 停机逻辑。
+
+## 正在推进
+
+正在接入米家与 HomeKit，设计通过 Home Assistant 统一设备能力。已实现带实体白名单、目标状态控制和执行后回读的网关原型，目前默认使用内存模拟传输；真实家居设备接通与新一轮真机验收尚未完成。
