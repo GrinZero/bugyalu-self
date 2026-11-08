@@ -1,0 +1,139 @@
+---
+title: "GLB 小了 83%，为什么模型变黄了，显存也没省那么多？"
+description: "同一面 4K 港湾石墙压成 KTX2 后体积从 13.05 MiB 降到 2.19 MiB，但在 Godot 4.7.2 运行时加载却偏成深黄色，早期修色原型的纹理显存也只省了 16.67%。这是一次把色彩传递函数、GPU 驻留格式和资源生命周期拆开算账的排障记录。"
+pubDate: 2026-11-07
+tags: ["Godot", "glTF", "KTX2", "performance", "debugging"]
+cover: "/images/posts/glb-ktx2/original-before-adapted.jpg"
+---
+
+给 3D 资产管线验证默认 KTX2 压缩流程时，我拿一面 4K 港湾栏墙模型做实测。模型几何很简单，978 个三角形、1102 个顶点，带三张 4096×4096 的无 mipmap 贴图：颜色图（baseColor，原为 JPEG）、法线图（normal，原为 JPEG）和金属粗糙度合成图（metallicRoughness，原为 PNG）。保持几何精度与 4K 分辨率不变，把三张贴图压成基于 Basis Universal 的 KTX2 并声明 `KHR_texture_basisu` 扩展后，GLB 体积从 13,684,304 字节降到 2,294,000 字节（13.05 MiB 降至 2.19 MiB），缩减了 83.24%。
+
+单看磁盘体积，收益非常可观。但当我把候选 GLB 放进独立的 Godot 4.7.2 测试工程（桌面端 Metal，通过运行时 `GLTFDocument` 调用 `append_from_file` 与 `generate_scene` 直接加载，未走编辑器 `.glb` 导入，也未接入正式游戏场景）时，画面当场出了问题：原本浅暖灰色的石墙整体沉下去一层，变成了高饱和度的深橘黄色。更意外的是，等我先写了一版加载后补偿原型把颜色救回来、再去核对 GPU 纹理显存计数时，原版 192 MiB 的占用只降到了 160 MiB，仅省下 16.67%，跟磁盘上 83.24% 的降幅完全对不上。
+
+这两个问题表面上一个在渲染色彩、一个在显存统计，追到底其实撞上了同一类盲区：把磁盘上的压缩容器，直接等同于送进着色器的采样值和驻留在 GPU 里的纹理格式。
+
+## 先拆变量：压缩失真、法线偏折，还是色彩空间错了位？
+
+看到压缩后的 PBR 模型偏色，最容易走的弯路就是急着调编码质量档位，或者怀疑 Basis Universal 的有损压缩压坏了暗部。动手调参前，得先把 PBR 贴图的两类数据性质拆开。
+
+在标准 glTF 材质里，三张贴图虽然都装在图像文件里，物理含义却截然不同。baseColor 在金属度工作流中描述基础颜色，影响非金属的漫反射与金属的反射颜色，为了在有限的 8 位整数里给暗部留够精度，通常采用非线性的 sRGB 传递函数编码（可粗略近似为幂指数 2.2 的曲线，实际 sRGB 使用分段函数），参与光照计算前必须做一次 sRGB 到线性的解码；而法线图和金属粗糙度图属于纯粹的数据图（data map），通道里存的是切线空间单位向量分量，以及 0 到 1 的金属度与粗糙度标量，从编码到采样的全链路都必须保持线性（linear），一旦混入 sRGB 变换，法线朝向和高光分布就会变形。
+
+为了查清究竟是哪张图、在哪一环把石墙染黄了，我固定相机、光照、曝光与材质参数，做了五组对照 GLB，并同时放进两套独立的 Godot 4.7.2 查看器加载——一套是零材质克隆、零纹理重建的原生查看器（native），另一套是带预览归一化脚本的查看器（normalized）：
+
+1. 仅将颜色图替换为 KTX2，法线与金属粗糙度保持原图（color-only）；
+2. 仅将法线图替换为 KTX2（normal-only）；
+3. 仅将金属粗糙度图替换为 KTX2（mr-only）；
+4. 三张贴图全部替换为 KTX2（all-ktx）；
+5. 将同一份颜色 KTX2 用官方 Khronos KTX 4.4.2 解码回 PNG，再装回 GLB 加载（decoded-png）。
+
+![五组对照变体在原生加载路径下的隔离渲染结果](/images/posts/glb-ktx2/native-isolation.jpg)
+
+两套查看器跑出了完全一致的结论。只换法线图时，前景 RGB 平均绝对误差仅为 0.59/255；只换金属粗糙度图时仅为 0.18/255，肉眼与原版几乎无差别；只要换上颜色 KTX2，误差立刻跳到 49.23/255，与三张全换（49.19/255）呈现出同款深黄色偏。最关键的判据来自第五组：把那张「一加载就变黄」的颜色 KTX2 解码回 PNG 再喂给同一个查看器，误差直接回落到 1.46/255，颜色恢复正常。
+
+这组隔离实验一次性排除了三个方向：原生查看器关闭了所有自行编写的材质处理仍复现偏色，排除了外围预览脚本；法线与金属粗糙度单独替换表现稳定，排除了表面法线偏折导致的假性变暗；同一份 KTX2 解码为 PNG 后正常显示，则证明压缩产物本身没有把颜色编黄，普通有损压缩误差更不可能制造近 50/255 的全局偏移。核查 KTX2 头里的数据格式描述符（DFD），颜色图的传递函数明确标为 2（sRGB），法线与金属粗糙度标为 1（linear），三张贴图均通过 `ktx validate --gltf-basisu --warnings-as-errors` 校验。文件标记无误，异常只能出在受影响的 KTX2 颜色加载路径上。
+
+## 为什么偏偏是「变深黄」：多出来的一次 sRGB 到 Linear 转换
+
+锁定范围后，我把 Godot 从颜色 KTX2 实际加载出的纹理像素导出，与官方 KTX 解码器输出做了逐通道比对。4096×4096 共 50,331,648 个 RGB 样本，直接相减的平均绝对误差高达 51.17/255；但如果先把官方解码值做一次标准 sRGB 到 Linear 变换，再与 Godot 内存里的像素对比，平均绝对误差瞬间降到 0.612/255。
+
+证据非常直接：Godot 在这条路径里解出来的颜色纹理，已经是提前线性化过的像素。对照 Godot 4.7-stable 分支的 KTX 模块与 glTF 扩展源码可以看到，对于标记为 sRGB 的 Basis 图像，KTX 加载器在解码为未压缩 RGBA32（即 `FORMAT_RGBA8`）后会调用 `srgb_to_linear()`；glTF 的 `KHR_texture_basisu` 扩展直接复用了该加载器，随后基础颜色材质采样又把这批已线性化的像素当作 sRGB 颜色再次解释了一遍。
+
+这也解释了为什么画面不只是变暗，而是偏成高饱和深黄。用幂函数近似单通道传递过程，原本只该执行一次的曲线解码叠成了两次：
+
+```text
+c_expected ≈ c_srgb ^ 2.2
+c_actual   ≈ (c_srgb ^ 2.2) ^ 2.2 = c_srgb ^ 4.84
+```
+
+中性灰的三通道相等，额外转换主要压低明度；暖色像素的蓝通道本来较低，重复非线性变换会改变通道比例，使画面更暗、更偏黄。这里的幂函数只解释趋势，不代替实际 sRGB 分段函数、光照和显示输出；偏色结论以像素测量与对照渲染为依据。法线与金属粗糙度图标记为线性，不经过这次颜色转换。
+
+这里需要严格划清边界：上述现象仅针对 Godot 4.7.2 运行时 `GLTFDocument` 走该 KTX2 sRGB 加载路径的实测行为，不能泛称为 Godot 或 KTX2 整体存在缺陷。
+
+## 修好颜色之后：文件小了 83%，为什么显存只省 16.7% 乃至 50%？
+
+定位根因后，早期原型先用最直接的方式验证修色：在场景加载完成后取出受影响的颜色图，执行逆变换 `linear_to_srgb()` 并重新绑定材质。同一正面全览镜头与光照下，Forward+ 前景 RGB 平均像素差从 49.19/255 降到了 1.55/255。
+
+这个 1.55/255 需要克制解读。它是单资产、单镜头的早期原型诊断指标，不是最终脚本的全视角统计，更不是 PSNR 或无损还原。因为加载器调完 `srgb_to_linear()` 后已经把像素量化进了 8 位整数的 `FORMAT_RGBA8` 缓冲区，暗部相邻色阶在窄位宽线性空间里已经发生了合并；事后再做逆变换只能恢复整体色调与明度，找不回已经丢失的暗部量化精度，近景与暗部细节仍需人工审看。
+
+![原版、原生加载与适配加载器在远景和近景裂缝细节上的三列对照](/images/posts/glb-ktx2/original-before-adapted.jpg)
+
+紧接着就是显存这笔账。在独立进程中按「加载后纹理显存计数减去空场景基线」测量：原版 GLB 为 192 MiB，早期修色原型为 160 MiB，只省了 16.67%。为什么文件小了 83.24%，显存只降了这么一点？拆开看，里面叠着两件事。
+
+第一件事是**磁盘编码与 GPU 驻留格式不是一回事**。原版 GLB 里的 JPEG 和 PNG 靠熵编码把磁盘体积压在 13.05 MiB，但 GPU 渲染时无法直接对 JPEG/PNG 做纹素随机寻址，三张 4096×4096 贴图上传后都会展开成未压缩的 RGBA8（每像素 4 字节，无 mipmap）：
+
+```text
+单张 4K RGBA8 纹理 = 4096 × 4096 × 4 bytes = 64 MiB
+三张原版贴图合计   = 64 MiB × 3 = 192 MiB
+```
+
+KTX2 的设计目标是在加载时把 Basis 数据直接转码为 GPU 原生块压缩格式（如桌面端常见的 BPTC / BC7，每像素折合 1 字节，单张 4K 无 mipmap 占 16 MiB）。但在当前 Godot 4.7.2 实测路径下，只有线性的法线图和金属粗糙度图驻留为 BPTC（各 16 MiB），sRGB 颜色图在加载器里已经被解成了未压缩的 RGBA8（64 MiB）。因此在这条路径下，三张有效贴图的显存物理下限本来就是 `64 + 16 + 16 = 96 MiB`——理论最多省 50%，不可能复制磁盘体积那 83% 的降幅。
+
+第二件事是**早期原型的资源生命周期多留了一份旧纹理**。既然下限是 96 MiB，早期原型为什么测出 160 MiB？因为它在 `GLTFDocument` 生成场景之后才复制材质、上传新颜色纹理（64 MiB），而原材质引用的那张未补偿旧颜色纹理（64 MiB）仍然存活在引用链里。`64（旧颜色）+ 64（新颜色）+ 16（法线）+ 16（金属粗糙度）` 恰好等于 160 MiB。至于未适配的原生 KTX2 路径，虽然计数确实是 96 MiB，但颜色是错的，不能算作有效结果。
+
+排查期间还测到过一个值得警惕的数字：另一版尝试主动释放 `GLTFState` 的变体，纹理显存计数掉到了 32 MiB。单看数字很诱人，但拿有效载荷一核对就露馅了——场景里明明正常渲染着一张 4K RGBA8 加两张 4K BPTC 贴图，有效纹理至少 96 MiB，低于物理下限的 32 MiB 与有效纹理载荷不一致，具体计数或释放时序原因尚未确认，因此不予采信。
+
+把生命周期修干净的做法，是把补偿前移到 `GLTFDocumentExtension` 的 `_parse_image_data` 阶段：在字节流刚解成 `Image`、尚未创建 GPU 纹理和材质之前原地完成 `linear_to_srgb()`，后续材质绑定完全复用原生管线，不再复制材质，也不残留旧纹理。最终脚本在桌面端 Forward+ 与 Mobile 渲染器下分别实测（独立进程扣除空场景基线），纹理显存增量均从 192 MiB 降至 96 MiB（201,326,592 降至 100,663,296 字节），各自 8 个测试视图的前景 RGB 平均绝对误差分别为 1.67/255 与 1.73/255。
+
+| 测试状态（同一 4K 栏墙，无 mipmap） | GLB 体积 | GPU 驻留格式 | 纹理显存增量 | 颜色状态 |
+| --- | --- | --- | --- | --- |
+| 原版 GLB（JPEG / PNG） | 13.05 MiB | 3 × RGBA8 | 192 MiB | 基准参考 |
+| KTX2 原生路径（未适配） | 2.19 MiB | 1 × RGBA8 + 2 × BPTC | 96 MiB | 深黄偏色（不可用） |
+| 早期加载后补偿原型 | 2.19 MiB | 2 × RGBA8（含旧图）+ 2 × BPTC | 160 MiB | 已修正（多占 64 MiB） |
+| 解析期扩展适配（最终脚本） | 2.19 MiB | 1 × RGBA8 + 2 × BPTC | 96 MiB | 已修正（待人工对比） |
+
+## 运行时探针：不改源资产，也不替未来版本猜 Gamma
+
+把补偿放进 `_parse_image_data` 后，还得防住另一个坑：假如后续 Godot 版本调整了加载器，让 sRGB KTX2 解码后直接保持 sRGB，写死的逆变换就会把正常贴图多提亮一次。同时，我们也绝不能为了绕过当前问题，把交付 GLB 里的颜色图伪标成 linear，或者预先烘焙提亮——那等于污染标准 `KHR_texture_basisu` 资产，换个引擎或升级版本就会出错。
+
+最终脚本采用了一张独立制作的 4×4 sRGB 中灰 KTX2 探针（标准值 `RGB(128, 128, 128)`，约 0.502），在每次加载前先调 `Image.load_ktx_from_buffer` 实测当前运行时行为：
+
+- 观测 RGB 向量与 (0.502, 0.502, 0.502) 的欧氏距离不超过 0.015：判定为保持 sRGB，直接走直通模式，不注册扩展；
+- 观测 RGB 向量与提前线性化后的灰色向量（各通道约 0.216）的欧氏距离不超过 0.015：启用补偿模式，仅对 DFD 标记为 sRGB（`bytes[dfd + 14] == 2`）且解为未压缩 RGB8/RGBA8 的颜色图执行一次 `linear_to_srgb()`，线性的法线与金属粗糙度图原样放行以保住 BPTC 压缩格式；
+- 加载器不可用或读出其他未知数值：直接返回明确错误，不猜 gamma。
+
+```gdscript
+# 示意：省略探针实现、文件头/边界/图像格式校验和场景空值检查；不可直接作为完整加载器使用。
+# 完整实现继承 GLTFDocumentExtension，并在读取 DFD 偏移前验证长度和文件标识。
+@export var compensate_prelinearized_srgb: bool = false
+
+func load_glb(path: String) -> Dictionary:
+	var probe := configure_for_current_loader() # 解码 4x4 sRGB 灰探针检测当前行为
+	if not probe.ok:
+		return {"error": probe.error, "scene": null, "loader": probe}
+	var document := GLTFDocument.new()
+	var state := GLTFState.new()
+	if compensate_prelinearized_srgb:
+		GLTFDocument.register_gltf_document_extension(self, true)
+	var error := document.append_from_file(path, state)
+	if compensate_prelinearized_srgb:
+		GLTFDocument.unregister_gltf_document_extension(self)
+	if error != OK:
+		return {"error": error, "scene": null, "loader": probe}
+	return {"error": OK, "scene": document.generate_scene(state), "loader": probe}
+
+func _parse_image_data(_state: GLTFState, bytes: PackedByteArray, mime: String, image: Image) -> Error:
+	if mime != "image/ktx2" or not compensate_prelinearized_srgb:
+		return OK
+	var dfd := bytes.decode_u32(48)
+	if bytes[dfd + 14] != 2: # 仅处理 DFD 标记为 sRGB 的颜色图，线性数据图放行
+		return OK
+	var err := image.load_ktx_from_buffer(bytes)
+	if err != OK:
+		return err
+	image.linear_to_srgb()
+	return OK
+```
+
+这里有两个实现细节：一是 `GLTFDocument` 内部会复制扩展实例，探针开关必须标为 `@export` 属性才能在复制后保留状态；二是 `GLTFDocumentExtension` 注册表是全局的，注册与注销必须严格包围同步的 `append_from_file` 调用，区间内不做异步等待，也不并发改写全局注册表。
+
+## 实测边界与留白
+
+最后把账本边界收拢清楚。文件体积（-83.24%）、桌面端纹理显存计数（192 → 96 MiB）和帧率需要分开报告：96 MiB 只是这件无 mipmap 单资产在桌面 Metal 运行时路径下的纹理计数增量，不代表整进程内存，也不能直接折算成全项目或手机真机的显存收益；读取耗时混有探针与缓存因素，本次没有受控加载时间或 FPS 基准，因此不声明任何帧率提升。
+
+入口与流程同样如此：运行时 `GLTFDocument` 验证通过，不等于 Godot 编辑器导入插件、导出包体或移动端自动通过；而把色偏修回正常，也只代表候选模型进入了等待人工对比的状态，是否真正替换正式资产，还得交给人眼在近景光照下拍板。
+
+参考源码与规范：
+
+- [Godot 4.7-stable `texture_loader_ktx.cpp`](https://github.com/godotengine/godot/blob/4.7-stable/modules/ktx/texture_loader_ktx.cpp)
+- [Godot 4.7-stable `gltf_document_extension_texture_ktx.cpp`](https://github.com/godotengine/godot/blob/4.7-stable/modules/gltf/extensions/gltf_document_extension_texture_ktx.cpp)
+- [Khronos glTF `KHR_texture_basisu` 扩展规范](https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_texture_basisu/README.md)
