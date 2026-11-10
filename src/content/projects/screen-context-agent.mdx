@@ -1,0 +1,24 @@
+---
+title: "闭源 AI 屏幕上下文工具：无感记忆回溯与 Tauri 重构"
+tagline: "pHash 差分 + OCR/多模态混合分析 6 阶段管线，从 Electron 向 Tauri / Rust 原生宿主重构"
+description: "解决日常浏览技术文章、会议或工作信息未及时收藏便容易遗忘的痛点，通过 6 阶段状态机管线与 Tauri / Rust 重构实现低资源占用的全天候个人屏幕记忆回溯。"
+icon: "🖥️"
+kind: "experiment"
+period: "2025 — 2026"
+accent: "mint"
+tags: ["Tauri", "Rust", "Electron", "VLM / OCR", "SQLite", "Plugin SDK"]
+order: 10
+---
+
+## 问题
+
+日常浏览 GitHub 前沿技术文章、会议或工作信息时，未及时点 Star 或收藏便极易遗忘，缺乏无感捕获屏幕上下文以回溯“每天做了什么、过去看过什么”的工具；同时初期基于 Electron 构建的桌面架构存在安装包体积过大、后台常驻内存占用过高的痛点。
+
+## 方案
+
+- **6 阶段多模态记忆状态机管线**：设计“感知哈希（pHash）差分检测 → 捕获窗口防抖与语义哈希去重 → 本地 Tesseract OCR + 多模态 LLM（GPT-4o / Gemini）混合分析 → SQLite 本地持久化”的 6 阶段状态机管线，并建设支持 `getContext` / `enrichPrompt` / `onAction` Hook 扩展与版本化缓存清理的插件 SDK。
+- **Tauri / Rust 原生宿主重构与音视频运行时**：主导技术栈从 Electron 向 **Tauri / Rust** 原生宿主重构；通过 Rust 桥接管理 Python 音视频引擎子进程生命周期、设备选择与日志回流，支持环境与模型的分阶段安装、断点续传及 SHA-256 完整性校验。
+
+## 结果
+
+大幅降低桌面端常驻资源开销，打通从无感屏幕捕获、多模态语义提炼、插件化扩展到本地音视频任务运行时的全天候个人记忆与知识回溯闭环。

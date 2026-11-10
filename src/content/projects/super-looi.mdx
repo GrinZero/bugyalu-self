@@ -1,21 +1,25 @@
 ---
-title: "LOOI 机器人与本地智能 App"
-tagline: "从 BLE 协议研究到语音、感知与设备工具调用"
-description: "从 BLE 协议研究到语音、感知与设备工具调用"
+title: "Super-LOOI：NSH 原生具身移动 Agent 与全屋智能控制"
+tagline: "在手机端内嵌 Alpine Linux 容器，串联本地离线唤醒、BLE 硬件底座与全屋家居控制"
+description: "打破原厂桌面机器人仅能简单陪聊的封闭限制，基于 NSH + TSX + QuickJS + Rust 构建内嵌 Alpine Linux 容器的 Super Personal Agent。"
 icon: "🤖"
 kind: "experiment"
-tags: ["BLE", "TypeScript", "Expo", "React Native", "Tool Calling"]
+period: "2026"
+accent: "coral"
+tags: ["NSH", "QuickJS", "Rust", "Alpine Linux", "BLE", "MIoT", "Home Assistant"]
 order: 9
 ---
 
-## 协议与控制
+## 问题
 
-研究蓝牙 HCI / BLE 通信，逆向机器人握手、特征值和控制指令，将移动、头部、灯光与吸附状态等能力封装为 TypeScript SDK。
+原厂 LOOI 桌面机器人能力封闭、仅能简单陪聊，无法执行复杂生产力任务或联动全屋智能家居；同时在移动端驱动硬件底座时面临离线唤醒切换、Android BLE 高频心跳与动作指令并发写锁冲突等底层挑战。
 
-## 本地智能 App
+## 方案
 
-基于 Expo / React Native 开发机器人 App，组织语音唤醒、VAD / STT / TTS、视觉感知、记忆、提醒与 LLM 工具调用。实现 BLE 握手、吸附状态监听、动作租约与断线撤销 / 停机逻辑。
+- **端侧 Linux Agent 运行时**：以打造真正的 **Super Personal Agent** 为目标，基于 **NSH（Native Shell）+ TSX + QuickJS + Rust** 构建 iOS / Android 双端原生应用；自研 `nsh-node-compat` 桥接层在 QuickJS 中运行 Pi Agent Loop，并通过 **Android PRoot / iOS iSH 在手机端内嵌持久化 Alpine Linux 容器**（支持安装 Git / Python / Node.js 等工具链直接读写文件、执行 Shell 与运行代码），结合 SQLite 任务持久化与 iOS Keychain / Android Keystore（AES-GCM）硬件级凭据隔离。
+- **本地离线唤醒与双工语音**：在 Rust 原生音频层集成 `sherpa-onnx` 本地双语关键词唤醒（Hey LOOI），命中后沿同一硬件音频流无缝切换至豆包 Duplex V3 / OpenAI Realtime 双工语音（支持 12s 静默自动回退待机与 Langfuse OTLP 跨语音/模型/工具共享 Trace）。
+- **BLE 具身控制与全屋家居联动**：封装双端原生 BLE 协议驱动物理底座（配合 **72 种声明式表情**与二次吸附四重反馈），在 `BodySupervisor` 中设计 **30ms FIFO 节流队列 + 60ms 静默窗**解决 Android BLE 高频心跳与动作指令并发写锁冲突，实施动作租约与断线急停；直连 **小米米家（MIoT）与 Home Assistant** 聚合网关，实现多品类真实家电的能力映射、语音/Agent 协同控制与目标状态回读校验。
 
-## 正在推进
+## 结果
 
-正在接入米家与 HomeKit，设计通过 Home Assistant 统一设备能力。已实现带实体白名单、目标状态控制和执行后回读的网关原型，目前默认使用内存模拟传输；真实家居设备接通与新一轮真机验收尚未完成。
+赋予移动端完整的本地 Linux 生产力执行环境与硬件具身交互闭环，打通从离线唤醒、实时语音、物理表情/动作底座到全屋真实家电状态回读的完整链路。

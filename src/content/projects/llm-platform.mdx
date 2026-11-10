@@ -1,21 +1,23 @@
 ---
 title: "应用级 LLM 配置平台"
 tagline: "分阶段模型配置、Provider 管理与真实运行拓扑可视化"
-description: "分阶段模型配置、Provider 管理与真实运行拓扑可视化"
+description: "解决多应用模型配置分散与模块级单例串用痛点，提供分阶段 LLM Pipeline 管理台、React Flow 真实拓扑可视化与 Datadog 评分闭环。"
 icon: "⚙️"
 kind: "internal"
-tags: ["LLM", "React Flow", "Provider Routing"]
-order: 7
+period: "2026"
+tags: ["LLM", "React Flow", "Provider Routing", "Datadog"]
+order: 8
 ---
 
-## 应用级 LLM 配置平台与运行链路可视化
+## 问题
 
-设计并实现应用级、分阶段的 LLM Pipeline 配置平台，支持不同应用分别为答案生成、相关性判断与重排、查询优化、上下文路由等阶段配置 Provider、模型及调用参数。
+随着内部多个 Agent 与检索管线演进，答案生成、相关性判断与重排、查询优化、上下文路由等阶段的模型配置分散在环境变量与代码中，且调用点存在模块级模型单例串用、阶段关闭后后续分支误调用，以及 Embedding 模型/向量维度被随意修改破坏索引兼容性的痛点。
 
-建立“请求级覆盖 > 应用级配置 > 环境默认值”的配置解析机制，按字段合并配置，并将 temperature、maxTokens、timeout 等参数传递至实际模型调用。调整调用点的模块级模型单例，按请求解析阶段配置，避免不同应用之间错误复用模型选择；同时处理阶段关闭后后续分支继续调用模型的问题。
+## 方案
 
-支持自定义 Provider、OpenAI-compatible 接口、连接测试与模型发现，建设凭据加密存储、界面掩码展示和 Provider 删除前的应用引用检查。
+- **多级配置解析与请求级隔离**：建立“请求级覆盖 > 应用级配置 > 环境默认值”的按字段合并机制，将 `temperature`、`maxTokens`、`timeout` 等参数准确透传至实际调用，并彻底消除模块级模型单例跨应用串用。
+- **Provider 安全治理与真实拓扑画布**：支持自定义 Provider、OpenAI-compatible 接口、连接测试与模型发现，建设凭据加密存储、界面掩码展示与删除前应用引用检查；以后端真实执行拓扑驱动 React Flow 可视化画布，并将 Embedding 连接配置独立锁定以保障向量索引兼容。
 
-以后端真实执行拓扑驱动 React Flow 可视化画布，展示各阶段的连接关系、配置摘要、继承来源及可配置、只读、锁定状态，让管理界面与实际运行能力保持一致。将 Embedding 的连接配置与凭据独立管理，约束应用侧修改模型和向量维度，维护检索索引兼容性。
+## 结果
 
-相关功能已合入主干，并完成 TypeScript、自动化测试与仓库检查。
+打通应用级分阶段模型路由与可视化管理闭环，并接入 Datadog Agent Observability（`run_id` 评分反馈闭环），支撑内部多 Agent 系统的模型灵活切换与可观测治理。

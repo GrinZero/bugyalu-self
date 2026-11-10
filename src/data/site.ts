@@ -17,14 +17,15 @@ export const profile = {
 };
 
 export const now = {
-  updated: "2026.11.07",
+  updated: "2026.11.10",
   paragraphs: ["正在找下一份工作，欢迎来聊。"],
 };
 
 export const stats = [
   { value: "76.6s → 4.2s", label: "dpdm-fast · B Web 循环依赖检查" },
-  { value: "100", label: "研发 Agent 累计处理的 issues，产出 27 个可直接合并的 PR" },
-  { value: "71% → 82%", label: "多源 RAG · 新架构 Context Recall@5" },
+  { value: "100 / 27 PR", label: "研发 Agent 处理 issues 与可直接合并 PR" },
+  { value: "38% → 82%", label: "多源 RAG · Context Recall@5 跃升" },
+  { value: "30% → 3%", label: "Node.js BFF · 接入接口整体错误率压降" },
 ];
 
 export interface HighlightItem {
@@ -35,101 +36,104 @@ export interface HighlightItem {
 
 export const highlights: HighlightItem[] = [
   {
+    icon: "🤖",
+    text: "深度的 AI Native 工程思维与 Agent 架构能力：将设计配表（Figma AI 插件）、排障修 Bug（研发 Agent 产出 27 个可合并 PR）、测试验收（落地公司首个云端 QA Agent，将 E2E 从一下午缩至约 1 小时）到线上运维（OTA 监控触发 AI 自动回滚）全面 Agent 化；构建 Mastra 三层记忆与防过载 Processor 流水线、重构读写对称多源 RAG 与 CodeGraph / Skills 底座（赋能全公司核心 Agent，Recall@5 38%→82%），并将个人探索延伸至全天候屏幕记忆回溯、3D 角色自然动画重建（一下午产出多动作资产）与内置 Linux 的端侧具身智能。",
+  },
+  {
+    icon: "🚗",
+    text: "0 到 1 平台 Owner 与数据闭环治理：具备从痛点抽象、PRD 撰写、带队研发到跨团队推广落地的完整闭环能力；带领 1 名实习生与 1 名外包 1.5 个月交付多租户 OTA 平台（支撑 3 个 App 分钟级热更新与 AI 自动回滚），从 0 到 1 建设 Node.js BFF 覆盖全核心团队 70+ 路由，并通过 Trace 看板与每日群日报 @ 责任人机制将接口整体错误率从 30% 压降至 3%。",
+  },
+  {
     icon: "🍃",
-    text: "跨端与全栈工程实践：React、Node.js、React Native / Hybrid，结合 Rust 工具开发与 Java / Swift 原生能力解决业务和工程问题。",
+    text: "无边界全栈与全端工程穿透：技术栈横跨 Web、React Native Hybrid、iOS / Android 原生、Electron / Tauri 桌面、NSH + QuickJS + Rust 端侧内置 Linux 容器及 Node.js / ClickHouse / PostgreSQL 后端；主导 Hybrid 转型与 Figma 插件将商户接入从 1 周缩至最快 2 小时、发版从超 1 周缩至 1 天，通过“接口拆分 + 流量回放 + Fallback”0 故障重构高耦合核心后端接口。",
+  },
+  {
+    icon: "🦀",
+    text: "极致性能工程与底层工具自研：习惯从 AST、CDP 协议、WASM 与状态库底层解决性能与工具链卡点；以 Rust / SWC 重写循环依赖检查将 CI 从 76.6s 降至 4.2s，主导前端、状态库与 ClickHouse MergeTree 慢查询治理使核心页加载与查询进入毫秒级、大盘 LCP 平均改善 38%。",
+    link: {
+      label: "dpdm-fast · GitHub",
+      href: "https://github.com/GrinZero/dpdm-fast",
+    },
   },
   {
     icon: "🧙‍♀️",
-    text: "开源 node-network-devtools，以 CDP Server 将响应体、调用栈和 WebSocket 帧接入 Chrome DevTools。持续参与 Node.js 核心 Network Inspector 的修复与增强，已有修复获上游合并。",
+    text: "开源 node-network-devtools 填补 Node.js 服务端可视化网络抓包空白，以 HTTP/HTTPS 拦截与自建 CDP Server 将请求/响应体、Initiator 调用栈与 WebSocket 帧接入 Chrome DevTools；持续反哺 Node.js 官方核心仓库 Network Inspector，核心修复 PR 获上游合并。",
     link: {
-      label: "开源 · GitHub",
+      label: "node-network-devtools · GitHub",
       href: "https://github.com/GrinZero/node-network-devtools",
     },
   },
   {
-    icon: "🤖",
-    text: "建设研发定位与修复 Agent、内部云端 QA Agent 和多源 RAG。围绕需求分析、用例评审、Golden Dataset 与分项评分，推动测试经验复用和持续回归。",
+    icon: "🌍",
+    text: "英文与业务全链路协作：可独立开展英文技术会议、书面技术方案撰写和代码评审；具备客户 App 上架物料直接对接经验，功能上线后持续使用 PostHog / Datadog 观察埋点数据并驱动迭代。",
   },
-  {
-    icon: "🧪",
-    text: "从接口、状态管理与渲染链路开展性能治理，并结合性能预算、错误红线和代码变更影响评估，将单点优化延伸到持续治理。",
-  },
-  {
-    icon: "🚗",
-    text: "从 0 到 1 建设 Node.js BFF 并推动跨团队接入；在客户端热更新平台中负责目标制定、PRD、任务拆解及实习生与外包协作。",
-  },
-  {
-    icon: "🌟",
-    text: "以 rrweb 和 IndexedDB 建设 24 小时用户行为回溯系统，关联 Intercom 工单、Sentry 错误和会话回放，为问题复现提供上下文。",
-  },
-  { icon: "🌍", text: "能独立使用英文进行技术协作，包括会议、书面技术方案与代码评审。" },
 ];
 
 export const skillDomains = [
   {
     id: "frontend",
-    evidence: { label: "性能优化实践", href: "#performance-engineering" },
-    name: "前端工程",
-    english: "Frontend",
-    summary: "从复杂业务界面到跨端应用，深入渲染、性能与工程基础。",
+    evidence: { label: "跨端与性能实践", href: "#mobile-engineering" },
+    name: "全端与跨端工程",
+    english: "Cross-Platform & Frontend",
+    summary: "横跨 Web、React Native Hybrid、iOS / Android 原生、Electron / Tauri 桌面与 NSH 端侧容器，深入渲染、性能与跨端发行。",
     capabilities: [
-      { name: "Web 应用与架构", detail: "React 组件与状态管理、响应式渲染、SDK 设计与工程化。" },
-      { name: "性能分析与优化", detail: "Web Vitals、渲染调度、懒加载、包体积与内存优化。" },
-      { name: "跨端与原生集成", detail: "React Native / Expo、Hybrid 通信、跨端鉴权与原生能力接入。" },
+      { name: "Web 与跨端应用架构", detail: "React / Next.js、React Native Hybrid 双向通信协议、多商户品牌资源隔离，以及 Electron → Tauri 桌面宿主重构与 NSH（QuickJS + Alpine Linux）端侧运行时。" },
+      { name: "极致性能工程", detail: "Web Vitals / LCP 分位数治理、状态库 auto batching 与 proxy 懒加载、JS Bundle 与内存瘦身、IntersectionObserver 懒加载及性能预算防劣化。" },
+      { name: "原生能力与自动化发行", detail: "Swift / Java 原生模块、Live Activity、BLE 硬件协议驱动，结合 Fastlane / TestFlight / App Store 审核与 Expo Updates OTA 分钟级热更新。" },
     ],
-    stack: ["TypeScript", "JavaScript", "CSS", "React", "Next.js", "React Native", "Vite"],
+    stack: ["TypeScript", "React", "Next.js", "React Native", "Expo", "Electron", "Tauri", "NSH / QuickJS", "Swift", "Java", "Vite", "Webpack"],
   },
   {
     id: "backend",
-    evidence: { label: "BFF 实践", href: "#bff-project" },
-    name: "后端工程",
-    english: "Backend",
-    summary: "围绕业务构建 Node.js 服务，打通接口、数据与调试链路。",
+    evidence: { label: "BFF 与后端治理", href: "#bff-project" },
+    name: "后端与基础架构",
+    english: "Backend & Infrastructure",
+    summary: "围绕高可用与高性能构建 Node.js BFF、核心后端服务与底层工具链，打通数据库调优、大文件传输与协议调试。",
     capabilities: [
-      { name: "服务与接口设计", detail: "BFF 架构、接口聚合、Schema 对齐与多租户资源隔离。" },
-      { name: "数据库与文件处理", detail: "PostgreSQL、Redis 应用实践，ClickHouse 查询调优，以及对象存储、分片上传与断点续传。" },
-      { name: "协议与工具开发", detail: "Node.js 网络调试、CDP 协议集成、CLI 与 Rust 工具开发。" },
+      { name: "Node.js BFF 与核心接口治理", detail: "从 0 到 1 建设 Hono BFF（70+ 路由），主导高频 metadata 批量合并，以及通过“接口拆分 + 流量回放比对 + Fallback”0 故障重构高耦合 getUserInfo 接口。" },
+      { name: "数据库架构与 ClickHouse 调优", detail: "PostgreSQL（含 Advisory Lock + 乐观锁 CAS）、SQLite A/B 原子切换、Redis，以及 ClickHouse MergeTree 列式存储慢查询调优（秒级降至毫秒级）。" },
+      { name: "底层协议与 Rust / WASM 工具", detail: "基于 Rust / SWC 重写 dpdm-fast（76.6s → 4.2s），自建 CDP Server 实现 Node.js 网络调试并反哺上游，Worker + WebAssembly 高吞吐文件分片上传。" },
     ],
-    stack: ["Node.js", "Hono", "Express", "PostgreSQL", "Redis", "ClickHouse", "AWS S3", "Rust"],
+    stack: ["Node.js", "Hono", "Express", "Rust", "SWC", "ClickHouse", "PostgreSQL", "Prisma", "SQLite", "Redis", "AWS S3", "CDP", "WebAssembly"],
   },
   {
     id: "ai",
-    evidence: { label: "Agent 落地实践", href: "#ai-engineering" },
-    name: "AI 应用工程",
+    evidence: { label: "Agent 与 RAG 实践", href: "#ai-engineering" },
+    name: "AI Native 与 Agent 工程",
     english: "AI Engineering",
-    summary: "让模型接入真实业务流程，用检索、证据和评估改进结果。",
+    summary: "以 AI-First 重构研发、测试与运维全链路，构建具备长时记忆、防上下文过载、多跳检索与可信沙箱的生产级 Agent 系统。",
     capabilities: [
-      { name: "Agent 框架与 Harness", detail: "Mastra、pi-agent 与 Agent Harness 应用实践，Runtime 集成、服务端流程编排、故障定位与代码修复。" },
-      { name: "RAG 与知识检索", detail: "Google Discovery Engine、多数据源并行召回、跨源引用关联、自适应多跳检索、RRF 与 LLM 重排。" },
-      { name: "评估与持续改进", detail: "Golden Dataset、逐 Case Review、分项 Scorer 与 LLM-as-judge，分别评估检索精度、召回与回答忠实度。" },
+      { name: "Durable Agent 与三层记忆架构", detail: "Mastra Durable Agent、Pooled Sandbox 隔离、Working / Observational（后台提炼与反思压缩）/ User Memory 三层记忆，以及 InputProcessor 防上下文过载流水线。" },
+      { name: "读写对称多源 RAG 与 CodeGraph", detail: "多源文档新鲜度分层与 LLM 富化、L0–L3 渐进改写、Google Agent Search + HopEngine 自适应多跳 + RRF + LLM Rerank（Recall@5 38%→82%），配套 CodeGraph 代码图谱与私有 Skills 网关。" },
+      { name: "评估闭环与多模态 / 具身探索", detail: "Golden Dataset、分项 Scorer 与 LLM-as-judge 评测；延伸至屏幕 pHash + OCR/VLM 记忆回溯、DINOv2 + FK 3D 角色动画重建与端侧离线唤醒具身智能。" },
     ],
-    stack: ["Mastra", "Google Agent Search", "pi-agent", "Harness", "Codex", "Gemini", "Weaviate", "LiteLLM", "RAG", "Agent Skills"],
+    stack: ["Mastra", "MCP", "RAG / HopEngine", "Google Agent Search", "CodeGraph", "Codex / Gemini", "pi-agent", "n8n", "DINOv2", "sherpa-onnx", "Agent Skills"],
   },
   {
     id: "devops",
-    evidence: null,
+    evidence: { label: "OTA 与可观测闭环", href: "#platform-engineering" },
     name: "DevOps 与可观测性",
     english: "DevOps & Observability",
-    summary: "把发布、监控、排障和质量检查连成可持续的工程流程。",
+    summary: "把多租户发布、AI 自动回滚、全链路 Trace、群日报追责和 CI 质量门禁连成数据驱动的治理闭环。",
     capabilities: [
-      { name: "部署与发布工具", detail: "容器化服务、集群调试工具、热更新回滚与运行时兼容性管理。" },
-      { name: "全链路可观测性", detail: "浏览器到微服务的 Trace 串联、错误率监控、行为回放与故障回溯。" },
-      { name: "工程质量与效率", detail: "CI 依赖检查提速、自定义 Lint 规则、性能预算与防劣化流程。" },
+      { name: "多租户 OTA 与 AI 自动回滚", detail: "基于 Expo Updates 协议以 runtimeVersion 严控原生兼容边界、channel 灰度隔离与 A/B Testing，完成 AI Native 监控适配实现异常触发 AI 紧急回滚。" },
+      { name: "全链路可观测与错误率闭环", detail: "串联 Datadog / PostHog / Langfuse OTLP Trace、rrweb 24h 行为回放（BugSpy），通过接口看板与每日群日报自动 @ 责任人将 BFF 错误率从 30% 压至 3%。" },
+      { name: "CI 提效与退化溯源", detail: "Rust 静态检查将 CI 提速 18 倍，结合符号级路由依赖、Git Diff 与遗传算法构建提交级性能影响面评分（食尾蛇工作流）。" },
     ],
-    stack: ["Docker", "Kubernetes", "AWS", "Datadog", "Sentry", "rrweb"],
+    stack: ["Docker", "Kubernetes", "AWS", "Datadog", "PostHog", "Sentry", "Langfuse", "rrweb", "Fastlane", "Expo Updates"],
   },
   {
     id: "product",
-    evidence: null,
-    name: "产品与体验设计",
-    english: "Product & Experience",
-    summary: "从实际使用问题出发，推动需求、交互与工程实现一起落地。",
+    evidence: { label: "平台与自动化实践", href: "#mobile-engineering" },
+    name: "产品 Owner 与工程提效",
+    english: "Product & Ownership",
+    summary: "从业务卡点出发制定目标与 PRD，带领团队推进平台落地，用自动化工具消除设计与研发之间的手工鸿沟。",
     capabilities: [
-      { name: "需求分析与方案设计", detail: "识别业务与协作痛点，拆解功能范围，推动工具和平台建设。" },
-      { name: "信息组织与交互", detail: "全局搜索与快捷导航、复杂平台交互、性能数据可视化。" },
-      { name: "设计与研发协作", detail: "Figma 插件、品牌资源配置与多租户应用的设计交付流程。" },
+      { name: "0 到 1 立项与带队交付", detail: "承担 OTA 平台与多商户 App 目標制定、PRD 撰写、任务拆解及实习生/外包协作，1.5 个月交付多租户发布平台，兼顾交付期限与跨端一致性。" },
+      { name: "设计研发一体化自动化", detail: "开发 Brand Figma Plugin 串联可视化配置、豆包 AI 自然语言改图、CDN 上传与配置入库，将单商户 onboard 从 1 周缩至最快 2 小时。" },
+      { name: "复杂平台交互与客户协同", detail: "React Flow 真实拓扑可视化画布、Cmd+K 全局搜索与 AI Search 规划；直接对接海外客户 App 上架物料并基于埋点数据持续迭代。" },
     ],
-    stack: ["Figma Plugin", "Global Search", "数据可视化", "多品牌定制"],
+    stack: ["PRD & 拆解", "Figma Plugin", "React Flow", "Global Search", "数据可视化", "多品牌定制", "英文技术协作"],
   },
 ];
 
@@ -159,246 +163,182 @@ export interface WorkEntry {
 }
 
 export const experience: WorkEntry[] = [
-{
-  "company": "MoeGo",
-  "role": "前端开发工程师",
-  "period": "2024.05 — 2026.08",
-  "intro": "围绕 AI 应用、全栈平台、React Native 跨端业务、前端性能和研发效率开展工作，承担多个项目的技术方案设计、核心开发和落地推进。工作范围覆盖 Web/App、Node.js 服务端、研发工具、CI 与发布平台，并在客户端热更新管理平台中负责目标制定、PRD 编写、任务拆解及实习生、外包协作。",
-  "sections": [
-    {
-      "icon": "🔥",
-      "title": "AI Agent、评测与知识平台",
-      "id": "ai-engineering",
-      "blocks": [
-        {
-          "lead": "研发问题定位与修复 Agent",
-          "text": "针对研发历史和问题线索分散在 Slack、Jira、GitHub、Sentry、Intercom 等系统，客服支持与研发需要反复检索、关联信息的问题，构建基于 Codex/Gemini Runtime、RAG、多源上下文和领域 Skill 的研发定位与修复 Agent。",
-          "children": [
-            "通过服务端编排和工具调用，将历史证据检索、问题分析与修复建议串联为工作流，为常见客服问题定位及 Sentry 问题修复提供支持。常见 CS 问题平均定位耗时从 1 小时缩短至 10 分钟，Sentry 问题修复耗时从约 20 分钟缩短至 5 分钟。截至离职，累计处理 100 个 issue，建议有效率超过 70%，产出 27 个可直接合并的 PR。"
-          ]
-        },
-        {
-          "lead": "云端 QA Agent 与运行架构",
-          "text": "设计 API / Worker / Sandbox 服务器架构与沙箱执行隔离方案，推动内部 QA Agent 从 n8n 工作流向 TypeScript/Mastra 演进，落地 MoeGo 首个云端 Agent，并面向内部 QA 用户持续生产运行。",
-          "children": [
-            "围绕需求分析、用例评审和执行反馈组织 Agent 工作流，支持测试任务处理与团队经验复用，将 Agent 的运行架构、执行隔离和实际 QA 协作场景结合起来。"
-          ]
-        },
-        {
-          "lead": "QA Agent 评测体系与团队经验闭环",
-          "text": "围绕内部 QA Agent 建设“需求分析—候选用例—逐条评审—修改反馈—分项评分—执行证据回流”的质量闭环，将个人 QA 经验持续沉淀为团队可复用经验，支持测试设计与 Agent 能力迭代。",
-          "children": [
-            "整理真实 QA 会话与执行轨迹，建设统一 Golden Dataset，并派生适配 Mastra、Datadog 的评测格式。结合逐 Case Review、修改反馈与分项 Scorer，从关键行为覆盖、禁止行为约束和执行轨迹可信度等维度组织回归评估，使评测能够定位具体用例和行为层面的问题。",
-            "为评测实验建立工具调用边界：写操作采用 mock，读操作按明确分类接入；对未分类的新工具阻断实验构建或导入，避免工具扩展时意外执行真实写入。区分用于回归验证的 Golden Case 与经过审核的正式 QA 经验，保留样本来源和纳入、排除依据。",
-            "Golden Dataset 与 Scorers 已合入主干。核心 QA Agent 持续服务内部 QA 用户，通过需求分析、用例评审和执行反馈推动团队经验复用；相关实践将 E2E 环节耗时从一个下午缩短至约 1 小时。"
-          ]
-        },
-        {
-          "lead": "多源 RAG、跨源关联检索与效果评估",
-          "text": "搭建基于 Google Agent Search / Discovery Engine 的多源 RAG，为内部 Agent 提供跨系统证据检索能力。利用底层服务完成版面分块、索引与初步召回，在应用层建设多 datastore 并行召回、跨源引用关联、自适应多跳检索、跨查询 RRF 融合排序及 LLM 重排。",
-          "children": [
-            "建立分步骤的 LLM-as-judge 评测机制，围绕上下文召回、检索精度和回答忠实度持续迭代。在内部评估集上，将 Google Agent Search 新架构的 Context Recall@5 从初版 71% 提升至 82%；后续对照轮次中，Precision@5 从 48% 提升至 60%。在完整回答质量优化周期中，Answer Faithfulness 从 0.71 提升至 0.94。"
-          ]
-        },
-        {
-          "lead": "应用级 LLM 配置平台与运行链路可视化",
-          "text": "设计并实现应用级、分阶段的 LLM Pipeline 配置平台，支持不同应用分别为答案生成、相关性判断与重排、查询优化、上下文路由等阶段配置 Provider、模型及调用参数。",
-          "children": [
-            "建立“请求级覆盖 > 应用级配置 > 环境默认值”的配置解析机制，按字段合并配置，并将 temperature、maxTokens、timeout 等参数传递至实际模型调用。调整调用点的模块级模型单例，按请求解析阶段配置，避免不同应用之间错误复用模型选择；同时处理阶段关闭后后续分支继续调用模型的问题。",
-            "支持自定义 Provider、OpenAI-compatible 接口、连接测试与模型发现，建设凭据加密存储、界面掩码展示和 Provider 删除前的应用引用检查。",
-            "以后端真实执行拓扑驱动 React Flow 可视化画布，展示各阶段的连接关系、配置摘要、继承来源及可配置、只读、锁定状态，让管理界面与实际运行能力保持一致。将 Embedding 的连接配置与凭据独立管理，约束应用侧修改模型和向量维度，维护检索索引兼容性。",
-            "相关功能已合入主干，并完成 TypeScript、自动化测试与仓库检查。"
-          ]
-        },
-        {
-          "lead": "企业知识源平台与权限隔离",
-          "text": "建设面向内部问答和 Agent 的知识源平台，将来源接入、同步管理、检索能力与消费应用解耦，支持用户自主添加飞书、Slack 知识源，并通过统一检索能力服务不同消费场景。",
-          "children": [
-            "以调用身份持有的 Token 绑定可访问知识源集合，建立来源级权限隔离，使不同应用和调用方在各自授权范围内检索内容。飞书、Slack 知识源接入与隔离核心能力已完成上线。",
-            "完善知识源生命周期管理，区分上游原文、同步策略、同步状态和检索投影，明确“排除未来同步”“手动删除检索投影”与“上游原文删除”的不同语义。实现未被排除的已删除投影可重新索引，处理旧内容 hash 导致重建被跳过的问题；相关删除、排除与重建能力已通过回归验证并合入主干。",
-            "推进管理端飞书文档树选择与首次同步入口，解除首次同步对历史同步状态的依赖，并联动刷新文档树、同步状态、运行记录与检索结果，完成本地验证。推进 Intercom 数据源接入，其数据库迁移与严格 TLS 连接已在测试环境验证。"
-          ]
-        }
-      ]
-    },
-    {
-      "icon": "🛠️",
-      "title": "全栈平台与发布治理",
-      "id": "platform-engineering",
-      "blocks": [
-        {
-          "lead": "客户端热更新管理平台与发布治理",
-          "text": "基于 Expo Update Server 协议建设客户端热更新管理平台，负责后端 API、CLI、CI 和业务接入，完成大部分管理后台开发，覆盖从发布工具到管理界面、服务端及业务应用的全栈链路。",
-          "children": [
-            "围绕原有发布流程的不足，建设回滚、A/B Testing、多租户、runtime 兼容、统一接入、审计和数据量化能力，统一 runtime 与 channel 管理。承担项目目标制定、PRD 编写和任务拆解，带领实习生与外包协作开发并推进交付。"
-          ]
-        },
-        {
-          "lead": "Node.js BFF 平台与跨团队接入",
-          "text": "针对前端需要直接组装多个后端服务数据、业务逻辑分散及调试成本高的问题，从 0 到 1 搭建 Node.js BFF，以 TypeScript、Hono、Kubernetes 和 AWS 支撑服务开发与部署。",
-          "children": [
-            "建设初始化数据聚合接口、路由脚手架、K8s 调试 CLI 和全链路 Trace，配套错误率与流量看板，完善开发、调试和运行观测流程。推动 BFF 成为新开发业务的统一接入路径，降低前后端跨团队协作和接口接入成本。"
-          ],
-          "id": "bff-project"
-        }
-      ]
-    },
-    {
-      "icon": "📱",
-      "title": "跨端业务与品牌定制",
-      "id": "mobile-engineering",
-      "blocks": [
-        {
-          "lead": "React Native / Hybrid 架构与多商家业务",
-          "text": "作为 CApp 核心业务 Owner，主导 Hybrid 技术转型，处理跨端鉴权、Web/App 通信、UI 兼容和多商家品牌资源隔离等问题。",
-          "children": [
-            "基于 React Native、Next.js 和 WebView，以公共协议包统一 WebView/App 通信与鉴权机制，结合 Java、Swift 原生能力支持跨端业务。建设图标、字体、图片与配色的品牌级隔离能力，支持多商家应用定制，在业务交付节点前完成上线，支持 4 家商家接入。"
-          ]
-        },
-        {
-          "lead": "Figma 插件与商户品牌定制自动化",
-          "text": "针对商户定制字体、主题、图标和图片需要设计与前端反复手工处理的问题，设计并实现 Figma 插件，串联可视化配置、自然语言改图、CDN 上传及配置入库流程。",
-          "children": [
-            "将品牌素材处理与应用配置连接起来，推动 MVP 投入实际使用，使单 App onboard 周期从原先最低一周缩短至平均 2 天，最快可在 2 小时内完成。"
-          ]
-        },
-        {
-          "lead": "原生移动能力、通知稳定性、地图与即时通信",
-          "text": "在 React Native 业务中引入 Swift、Java 原生开发能力，建设 Live Activity，支持移动端实时状态展示；定位并修复 Expo Android 通知点击引发的崩溃问题。",
-          "children": [
-            "独立负责地图与 IM 模块开发，打通移动美容师与客户之间的实时通信链路，覆盖跨端业务与原生能力集成。"
-          ]
-        },
-        {
-          "lead": "品牌应用双向消息与外部服务集成",
-          "text": "参与品牌应用双向消息及相关增强功能开发，针对商家依赖 SMS、后端开发人力有限的情况，调研并复用外部 API，支持业务功能交付，减少对新增后端接口开发的依赖。",
-          "children": []
-        }
-      ]
-    },
-    {
-      "icon": "🧪",
-      "title": "性能、稳定性与研发效率",
-      "id": "performance-engineering",
-      "blocks": [
-        {
-          "lead": "BugSpy 用户行为回溯与问题复现平台",
-          "text": "针对线上问题难以复现、客服与研发需要反复沟通收集线索的问题，设计并实现基于 rrweb 与 IndexedDB 的用户行为回溯系统，保留最近 24 小时的行为日志，并连接 Intercom 工单与 Sentry 错误平台。",
-          "children": [
-            "通过端侧行为记录、浏览器本地存储和会话回放，为研发排查提供问题发生前后的操作上下文，将用户反馈、错误信息与行为轨迹关联起来，支持线上问题复现和故障定位。"
-          ]
-        },
-        {
-          "lead": "核心业务页面性能专项",
-          "text": "在客户关键业务节点，针对首页表格加载慢、日历交互卡顿等问题，一周内从接口聚合、状态管理、渲染重排重绘和动画链路开展分层定位与治理。",
-          "children": [
-            "将首页表格加载耗时从 1.95 秒优化至 270 毫秒，将日历加载耗时从 3 秒优化至 400 毫秒，改善核心业务页面的加载和交互体验。"
-          ]
-        },
-        {
-          "lead": "状态管理优化、LCP 治理与性能预算",
-          "text": "在内部状态管理库中引入 auto batching，治理批量状态更新引发的重复渲染；通过 schema getter/proxy 懒加载减少非必要初始化开销，并结合性能预算和错误红线推进持续治理。",
-          "children": [
-            "状态管理相关优化使多页面 LCP 改善 200—500 毫秒，平均改善约 38%。在进一步的 LCP 专项治理中，P75 降低超过 2 秒，P95 降低超过 5 秒，降幅超过 50%，将性能优化从单点修复推进到持续指标治理。"
-          ]
-        },
-        {
-          "lead": "React Native App 首屏、内存与热更新体积优化",
-          "text": "围绕 B App 的 JS Bundle 开展专项优化，定位首屏依赖、内存占用和热更新下载链路的问题，改善移动端加载与资源使用。",
-          "children": [
-            "专项优化后，首屏耗时减少约 400 毫秒，降幅约 13.3%；内存占用减少约 150MB，降幅约 17.4%；热更新下载体积降低超过 50%。"
-          ]
-        },
-        {
-          "lead": "Rust 静态依赖分析工具与 CI 提效",
-          "text": "针对原有 dpdm 循环依赖检查耗时超过一分钟、影响团队 CI 反馈效率的问题，基于 Rust 与 SWC 重写静态依赖分析工具 dpdm-fast，覆盖 99% 的原有测试并接入 CI。",
-          "children": [
-            "将 B Web 循环依赖检查耗时从 76.6 秒降至 4.2 秒，将 B App 检查耗时从 46.7 秒降至 3.28 秒，改善 30 多名前端开发者的日常检查与持续集成体验。"
-          ],
-          "oss": {
-            "label": "GitHub",
-            "href": "https://github.com/GrinZero/dpdm-fast"
-          }
-        },
-        {
-          "lead": "代码变更性能影响评估与退化溯源",
-          "text": "针对性能指标能够发现退化、却难以追溯具体代码变更的问题，设计并实现面向代码提交的性能影响评估工作流。",
-          "children": [
-            "在 dpdm-fast 中实现符号级路由依赖分析，结合 Git Diff、模块复杂度、AI 文件评分与遗传算法，对代码提交的潜在性能影响范围进行分析和评分，并用于高风险模块的预警与评估，将性能治理延伸至代码变更阶段。"
-          ]
-        }
-      ]
-    },
-    {
-      "icon": "🧩",
-      "title": "产品能力与通用 SDK",
-      "id": "product-engineering",
-      "blocks": [
-        {
-          "lead": "大文件分片上传与统一 SDK",
-          "text": "参与建设统一大文件上传 SDK，支持 AWS 直传、Multipart Upload、断点续传和并发上传，通过 Worker 将相关处理与主线程隔离，统一业务侧接入方式。",
-          "children": [
-            "在项目原有业务对比口径下，实现上传耗时降低超过 60%、存储占用降低超过 50%，支持大文件上传链路的性能优化与能力复用。"
-          ]
-        },
-        {
-          "lead": "全局搜索与产品导航能力",
-          "text": "针对产品功能较多、页面入口分散、用户查找路径较长的问题，推动 Cmd+K 全局搜索与页面跳转能力落地，改善功能入口的可发现性。",
-          "children": [
-            "结合产品使用场景规划高频 Action 与 AI Search，将全局搜索纳入后续 AI 化方向。"
-          ]
-        },
-        {
-          "lead": "Web 图片压缩 SDK",
-          "text": "针对 B Web 缺乏统一图片压缩能力、社区方案在性能与接入成本方面不满足需求的问题，调研并自研图片压缩 SDK，提供统一、低接入成本的图片处理能力，并接入实际业务。",
-          "children": []
-        }
-      ]
-    }
-  ]
-},
   {
-    company: "米哈游",
-    role: "前端开发工程师",
-    period: "2023.6 — 2024.5",
+    company: "MoeGo",
+    role: "全栈开发工程师",
+    period: "2024.05 — 2026.08",
+    intro:
+      "围绕多商户 App、客户端发布平台（OTA）、Node.js BFF、后端核心系统与 AI 研发工作流开展全栈研发；承担数据库架构、接口性能优化与高可用治理，并在内部积极推进事后复盘机制。",
     sections: [
       {
-        icon: "⚡",
-        title: "WebVitals 性能可视化平台（Sniffing v1.7.5）",
+        icon: "🔥",
+        title: "AI Agent、三层记忆架构与多源 RAG 底座",
+        id: "ai-engineering",
+        stack: "Mastra · MCP · Google Agent Search · HopEngine · CodeGraph · PostgreSQL · Eval",
         blocks: [
-          { text: "参与 Sniffing 埋点系统及性能可视化平台的迭代升级，承担核心功能模块的前端重构任务。" },
-          { text: "独立构建性能指标大盘、会话分析表格、字段管理工具等关键模块，优化项目依赖与构建流程。" },
-          { text: "通过重构构建链路与性能组件，将页面启动耗时从秒级降低至毫秒级，打包产物缩小 20%，实现 v1.7.5 的按时高质量交付。" },
+          {
+            lead: "云端 QA Agent（Qasey）：三层记忆架构、防上下文过载与 E2E 闭环",
+            text: "针对手工编写评审用例与 E2E 验证耗时长（单次常需一个下午）、QA 个人经验难复用，且早期 n8n 工作流在长时运行中上下文极易过载的痛点，设计 API / Split Orchestration Worker / Pooled Sandbox 服务器拓扑与执行隔离，推动系统向 TypeScript / Mastra Durable Agent 演进，落地公司首个云端 Agent。",
+            children: [
+              "三层记忆体系：① 结构化 Working Memory 实时维护任务目标、覆盖边界与阻塞槽位；② Observational Memory 按 Token 水位自动触发轻量模型后台 Observation 提炼与 Reflection 反思压缩，支持跨会话分页 Recall 并严格隔离群聊共享与个人私有记忆；③ 基于 PostgreSQL Advisory Lock + Revision 乐观锁 CAS 实现跨会话 User Memory，安全沉淀长期测试偏好。",
+              "防过载 Processor 流水线与 E2E 持久闭环：为彻底解决长时多轮调用中工具定义膨胀与大体积返回（如单次 Jira / PR 达 380k+ Token）撑爆上下文及静默超时问题，组装 InputProcessor 流水线——通过 ToolSearchProcessor（Top-K 动态按需挂载外部工具）、ToolCallFilter（跨轮次自动裁剪历史大体积原始工具输出，仅保留精简投影）、TokenLimiter 及到期前优雅收尾 Processor（预留窗口强制切 toolChoice: none 汇总结论）。",
+              "结合支持 suspend / resume 的 E2E 持久工作流（冻结需求与 Base SHA → 隔离 Sandbox Author 编写与自检门禁 → Clean Verifier 全新工作区独立重放与录像采集 → QA 逐条审核及带反馈自动修复 → Draft PR 发布）与 Golden Dataset 回归评测，将 E2E 环节耗时从一个下午缩短至约 1 小时。",
+            ],
+          },
+          {
+            lead: "企业多源 RAG 与 AI 基础平台：读写对称检索、CodeGraph 与 Skills 分发",
+            text: "针对原 RAG 引擎跨源召回率极低（接手时旧架构 Context Recall@5 仅 38%），且飞书、Slack、GitHub、Jira、Intercom 等多源知识孤岛、跨文档引用断裂的痛点，构建以 Context 为核心的读写对称架构。",
+            children: [
+              "读写对称检索与多跳精排：写路径统一摄取多源文档，引入新鲜度分层（hot/warm/cold）、生命周期管理与 LLM 富化（摘要、实体、潜在查询），私有 GCS 图文资产经无状态 HMAC 签名代理支持多模态检索；读路径设计 L0–L3 四级渐进降级预处理（实体识别、多语言改写、Mirror Text 假设回答段落），基于 Google Agent Search 多 Datastore 并行召回，叠加跨源 Reference 自适应多跳扩展（HopEngine）、跨 Query RRF 融合（k=60）、LLM Rerank 与相邻 Chunk 水合组装。",
+              "通过 REST 与 MCP 统一服务内部全部核心 Agent（AskMoe 内部问答、客服 Agent、HR Agent、研发定位 Agent、QA Agent），内部 LLM-as-judge 评测中 Context Recall@5 由旧架构 38%、重构初版 60% 持续跃升至 71% → 82%，Answer Faithfulness 由 0.71 提升至 0.94。",
+              "权限治理、可配置 Pipeline 与工程底座扩展：针对多 Agent 检索越权风险、失效文档难清理、模型配置分散及代码影响面难评估的痛点，实现调用方 Token 级知识源权限绑定、RBAC 申请流及文档手动删除 / exclude 重建控制；建设分阶段可配置 LLM Pipeline 管理台（React Flow 真实拓扑可视化）并接入 Datadog Agent Observability（run_id 评分反馈闭环）；开发基于不可变 Worktree 与 SQLite A/B Generation 原子切换的 CodeGraph 代码图谱（支持符号调用链与 Open PR 增量影响面分析 MCP 工具），以及带 OAuth/RBAC 与全链路日志脱敏的私有 Agent Skills 分发网关（支持 npx skills add/update 一键安全安装）。",
+            ],
+          },
+          {
+            lead: "研发定位与修复 Agent：跨系统证据聚合与自动修复",
+            text: "针对研发历史散落在 Slack、Jira、GitHub、Sentry 与客服系统中导致排障链路极长的痛点，主导基于 Codex / Gemini Runtime、多源 RAG、领域 Skill 与 Tool Calling 的智能定位与修复工作流，自动聚合多源历史上下文并生成代码修复建议。",
+            children: [
+              "将常见客服问题平均定位时间从 1 小时缩短至 10 分钟，Sentry 问题处理从 20 分钟/项缩短至 5 分钟/项；截至离职累计处理 100 个 issue，建议有效率 >70%，产出 27 个可直接合并的 PR。",
+            ],
+          },
         ],
       },
       {
-        icon: "🧠",
-        title: "埋点协作平台 Sniffing Together（v1.8.5）",
+        icon: "🛠️",
+        title: "全栈平台、高可用后端与闭环治理",
+        id: "platform-engineering",
+        stack: "TypeScript · Hono · Node.js · PostgreSQL · Expo Updates · Kubernetes · AWS · Datadog",
         blocks: [
-          { text: "负责埋点协作平台的前端开发与功能迭代，提升协作效率与使用体验。" },
-          { text: "重构侧边栏结构与核心交互，包括折叠伸缩、项目卡片、版本卡片及全局参数能力等模块。" },
-          { text: "主导完成 Vite 与 Ant Design 的版本升级，并在任务提前完成后主动承担全局参数模块改造。" },
-          { text: "跨栈参与后端 Node.js 优化工作，针对 ClickHouse 查询进行调优，将多个查询语句执行时间从秒级降至毫秒级，在紧张工期内高质量交付 v1.8.5。" },
+          {
+            lead: "客户端发布平台（OTA）：立项带队、兼容治理与 AI 秒级回滚",
+            text: "针对客户端缺乏热更新、快速回滚、多租户隔离与发布审计的空白，制定平台目标、编写 PRD 并拆解任务，带领 1 名实习生与 1 名外包历时 1.5 个月交付完整版平台（个人负责后端 API、CLI、CI、业务接入及大部分管理后台），采用多租户架构支撑内部 3 个 App 接入使用。",
+            children: [
+              "兼容边界拦截与 AI 自动回滚：针对原生模块变更易引发热更新崩溃的风险，基于 Expo Updates 协议以 runtimeVersion 严格约束 Native 与 JS Bundle 兼容边界、以 channel 隔离灰度与多原生版本并行维护，补齐 A/B Testing 与发布审计；将热更新发布与回滚缩短至分钟级，成功拦截原生不兼容线上事故，并完成 AI Native 监控适配，实现异常触发后由 AI 快速执行紧急线上回滚。",
+            ],
+          },
+          {
+            id: "bff-project",
+            lead: "Node.js BFF 平台：从 0 到 1 推广与接口错误率闭环治理",
+            text: "针对前端直接组装多源后端数据复杂度高、跨团队联调成本大的痛点，基于 TypeScript / Hono / Kubernetes 落地首个 /init 聚合接口，配套路由脚手架与 K8s 调试 CLI 降低接入成本；截至离职，所有核心业务团队新需求统一经 BFF 接入，累计上线路由超 70 个。",
+            children: [
+              "可观测建设与错误率治理闭环：针对跨服务接口异常与契约偏移不透明、长期无人跟进导致错误率居高不下的痛点，接入与后端微服务对齐的全链路 Trace，建设接口错误率、schema 对齐率与服务流量看板，并通过每日群日报自动 @ 对应团队 Leader 或责任人跟进修复，推动接入接口整体错误率从约 30% 降至约 3%。",
+            ],
+          },
+          {
+            lead: "核心后端接口重构与统一上传 SDK：高可用治理与传输优化",
+            text: "针对前端单页散落并发调用十余至二十余次 metadata 接口、消耗全站 Datadog 40%+ 配额，以及冷启动 getUserInfo 强耦合支付侧全量 Invoice 与外部 Stripe 查询导致严重慢查询与数据冗余缺失的技术债，主导前后端 metadata 自动合并与批量查询改造。",
+            children: [
+              "采用“接口拆分 + 流量回放比对 + 异常 Fallback 兜底”重构 getUserInfo，实现生产环境 0 故障平稳上线。",
+              "大文件分片上传 SDK：针对业务大文件上传耗时长、弱网易中断、主线程阻塞及重复存储痛点，建设集成 AWS 直传、Multipart 分片断点续传、并发控制与 Worker 主线程隔离的统一 SDK；在业务对比口径下上传耗时降低 60%+、存储占用降低 50%+。",
+            ],
+          },
+        ],
+      },
+      {
+        icon: "📱",
+        title: "多商户跨端架构、设计自动化与发行提效",
+        id: "mobile-engineering",
+        stack: "React Native · Next.js Hybrid · Swift · Java · Figma Plugin · Fastlane · TestFlight",
+        blocks: [
+          {
+            lead: "多商户 App：Hybrid 架构转型与业务对齐",
+            text: "作为客户端核心业务 Owner，针对客户强烈要求对齐 Web 端 Online Booking 完整功能、而纯原生开发进度滞后的瓶颈，主导 React Native + Next.js Hybrid 混合架构转型。",
+            children: [
+              "以公共协议统一 WebView / App 鉴权与双向通信，隔离字体、图标、图片与配色，快速补齐核心业务能力并按期交付 4 家商户。",
+            ],
+          },
+          {
+            lead: "设计研发自动化（Figma Plugin）与发版提效",
+            text: "针对品牌资源依赖前端反复手工处理及多商户发版周期长（单次超 1 周）的痛点，独立开发 Figma Plugin 串联可视化配置、豆包 AI 自然语言改图、CDN 上传与配置入库，将单商户接入从最低 1 周缩短至平均 2 天、最快 2 小时。",
+            children: [
+              "覆盖 Native iOS（Swift）/ Android（Java）开发（建设 Live Activity 实时状态、地图与 IM 模块、修复通知点击崩溃），结合 Fastlane、TestFlight 与标准化客户上架物料对齐，将单次发版与物料处理耗时从超 1 周缩短至 1 天内，上线后持续通过 PostHog / Datadog 观察埋点数据。",
+            ],
+          },
+        ],
+      },
+      {
+        icon: "🧪",
+        title: "Web / App 性能工程、可观测回溯与 Rust 工具链",
+        id: "performance-engineering",
+        stack: "Rust · SWC · WebVitals / LCP · rrweb · IndexedDB · Sentry",
+        blocks: [
+          {
+            lead: "客户签单关键页面攻坚",
+            text: "针对 T1 客户签单前核心页面加载慢、日历严重卡顿的紧急阻塞，一周内分层治理接口聚合、状态管理与渲染重排链路。",
+            children: [
+              "将首页表格加载从 1.95s 降至 270ms、日历从 3s 降至 400ms，保障关键客户顺利交付。",
+            ],
+          },
+          {
+            lead: "状态库防劣化与移动端瘦身",
+            text: "针对复杂业务批量渲染与全量 schema 拖慢大盘性能，以及 App 首屏依赖膨胀导致内存高、热更新慢的痛点，在状态库引入 auto batching、schema getter/proxy 懒加载与性能预算红线。",
+            children: [
+              "使多页面 LCP 平均改善 38%（200–500ms），分位数专项中 P75 下降超 2s、P95 下降超 5s；治理 App 首屏依赖与 OTA 链路，使首屏耗时减少 400ms、内存降低约 150MB、热更新下载体积下降 50%+。",
+            ],
+          },
+          {
+            lead: "Rust 重写静态依赖检查（dpdm-fast）与性能退化溯源",
+            text: "针对原 dpdm 循环依赖检查超 1 分钟、严重拖慢 30+ 名前端开发 CI 效率的痛点，使用 Rust 与 SWC 独立重写静态依赖分析工具，覆盖 99% 原有测试并接入生产 CI。",
+            children: [
+              "将 Web 检查耗时从 76.6s 降至 4.2s、App 从 46.7s 降至 3.28s；并在此基础上实现符号级路由依赖分析，结合 Git Diff、模块复杂度、AI 文件评分与遗传算法构建提交级性能影响面评估工作流（食尾蛇工作流）。",
+            ],
+            oss: {
+              label: "GitHub",
+              href: "https://github.com/GrinZero/dpdm-fast",
+            },
+          },
+          {
+            lead: "BugSpy 用户行为回溯与全局产品体验",
+            text: "针对线上疑难缺陷难以复现、客服与研发反复沟通收集线索的痛点，基于 rrweb 与 IndexedDB 边缘存储设计保留最近 24 小时行为日志的回溯系统，打通 Intercom 工单与 Sentry 错误平台，提供故障前后的完整操作现场。",
+            children: [
+              "针对产品功能入口分散问题，推动 Cmd+K 全局搜索与快捷导航落地，并自研统一 Web 图片压缩 SDK 降低业务接入成本。",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    company: "米哈游",
+    role: "前端开发工程师",
+    period: "2023.06 — 2024.05",
+    intro:
+      "负责性能可视化平台（Sniffing WebVitals）与埋点协作平台的核心研发与跨栈 ClickHouse 慢查询深度调优，并独立设计超微运营公告 SDK 与 Worker + WASM 文件上传工具链。",
+    sections: [
+      {
+        icon: "⚡",
+        title: "性能可视化平台（Sniffing WebVitals）与埋点协作平台",
+        stack: "React · Vite · Ant Design · Node.js · ClickHouse MergeTree",
+        blocks: [
+          {
+            lead: "前端构建提速与核心模块重构",
+            text: "针对性能监控平台前端构建启动缓慢、核心分析模块与埋点协作平台（Sniffing Together）交互待升级的痛点，重构 WebVitals 构建链路并独立交付指标大盘、单会话分析表格与字段管理。",
+            children: [
+              "同步主导埋点平台 Vite / Ant Design 架构升级与全局参数改造，使本地启动耗时从秒级降至毫秒级、构建产物缩减 20%。",
+            ],
+          },
+          {
+            lead: "Node.js + ClickHouse 列式存储慢查询深度调优",
+            text: "针对性能可视化平台千万级监控上报数据下，指标大盘与多维分析的复杂查询处于秒级卡顿、高基数统计与多表关联易引发内存暴涨的痛点，跨栈深入 Node.js 服务端与 ClickHouse（MergeTree）底层开展 SQL 调优。",
+            children: [
+              "以 COUNT() 替代 COUNT(id) 并利用基于 simdjson 的 JSONExtractString 裁剪多余列块磁盘 IO；将查询 ORDER BY 严格对齐 MergeTree 建表主键排序键以消除全量内存重排序；以 IN 子查询/预过滤小表替代大表直接 LEFT JOIN 规避右表全量载入内存；并在大盘统计中以 uniqCombined 近似去重替代高开销精确 COUNT(DISTINCT)，将多个核心查询耗时从秒级降至毫秒级。",
+            ],
+          },
         ],
       },
       {
         icon: "📢",
-        title: "运营公告平台 SDK（v1.0.0）",
+        title: "运营公告 SDK 与对象存储工具链（OSS-SDK）",
+        stack: "TypeScript · Micro-Reactive Runtime · Web Worker · WebAssembly · IE10",
         blocks: [
-          { text: "负责运营公告平台前端 SDK 的架构设计与开发，为多业务线提供稳定高效的公告渲染能力。" },
-          { text: "自研超微响应式渲染框架，支持灵活的公告样式与布局，增强开发体验。" },
-          { text: "对打包体积进行深度优化，从 200+KB 压缩至 13KB，同时保证兼容性覆盖 IE10。" },
-          { text: "引入指数退避策略优化拉取稳定性，最终实现稳定上线并获得较好反馈。" },
-        ],
-      },
-      {
-        icon: "🗂️",
-        title: "OSS-SDK 文件上传工具链（v0.1.0）",
-        blocks: [
-          { text: "独立负责 OSS-SDK 的设计与开发，为用户提供一站式上传下载能力，兼容旧版 OSS 逻辑。" },
-          { text: "实现分片上传、断点续传、有效帧提取、缩略图返回等能力，支持 Worker + WASM 架构执行 CRC32 计算。" },
-          { text: "针对社区开源方案进行性能重构并封装为私有包，CRC32 算法性能提升 10%～25%。" },
-          { text: "在高压工期下成功交付首版 SDK，显著提升产品在文件处理方面的可接入性与性能体验。" },
+          {
+            lead: "极限包体压缩与高吞吐校验",
+            text: "针对游戏业务接入方要求严格兼容 IE10 且对宿主 SDK 体积高度敏感，以及大体积媒体资产上传校验阻塞主线程的痛点，从 0 到 1 设计运营公告 SDK 与 OSS-SDK。",
+            children: [
+              "自研微型响应式运行时与指数退避重试机制，将运营公告 SDK 包体从 200KB+ 极限压缩至 13KB 并稳定兼容 IE10。",
+              "独立设计集成切片断点续传、视频有效帧截取与缩略图生成的 OSS-SDK，通过 Worker + WebAssembly 实现高性能 CRC32 校验，吞吐量较社区方案提升 10%–25%。",
+            ],
+          },
         ],
       },
     ],
@@ -408,25 +348,21 @@ export const experience: WorkEntry[] = [
     role: "前端开发实习生",
     period: "2021.12 — 2023.02",
     intro:
-      "腾讯客户端性能分析平台（QAPM）是一款面向银行与集团内部使用的性能检测 SDK，前端基于 React + Redux + Saga 构建，支持多维数据可视化、行为分析与性能追踪。",
+      "参与腾讯客户端性能分析平台（QAPM，面向银行与集团内部使用的性能检测平台）研发，主导前端工程化重构与多图表大屏渲染性能优化。",
     sections: [
       {
         icon: "👀",
-        title: "QAPM 项目开发与工程优化",
+        title: "QAPM 性能监控平台：工程化重构与多图表大屏性能优化",
+        stack: "React · Redux · Saga · Webpack · Babel · IntersectionObserver",
         blocks: [
-          { text: "支持性能监控平台多个子模块开发，独立负责用户行为轨迹模块、项目详情页、跨时区时间展示方案。" },
-          { text: "针对多图表页面性能问题，基于 IntersectionObserver 实现懒加载 hook，接入至 50+ 页面，显著改善滚动卡顿。" },
-          { text: "主导前端工程优化：Webpack 打包体积 13.3MB → 2.7MB，首次启动时间 33.1s → 18.8s，HMR 缩短至 600ms。" },
-          { text: "构建内部 CLI 工具链，升级 Babel 配置，引入 ESLint + Husky 流程，提升开发效率与质量保障。" },
-          { text: "输出多份模块设计与开发文档，提升新人上手效率，推动团队技术知识沉淀。" },
-        ],
-      },
-      {
-        icon: "🏅",
-        title: "其他贡献与表现",
-        blocks: [
-          { text: "支持腾讯 Mini 项目，指导学员实现前端自动化监控与图像压缩。" },
-          { text: "获得中期考核「优」、终期考核「S」，获颁「部门力求上进奖」。" },
+          {
+            lead: "构建提速与大屏懒加载治理",
+            text: "针对 QAPM 历史前端工程产物体积庞大、冷启动缓慢、缺乏代码质量门禁，以及单页数十个监控图表同时渲染导致严重卡顿的痛点，主导 Webpack / Babel 构建优化、自研内部 CLI 并引入 ESLint / Husky 质量流程。",
+            children: [
+              "使打包产物从 13.3MB 降至 2.7MB、首次启动从 33.1s 缩短至 18.8s（HMR 达 600ms）。",
+              "独立负责用户行为轨迹、项目详情与跨时区方案，设计基于 IntersectionObserver 的通用懒加载 Hook 并推广覆盖 50+ 个监控页面，沉淀完整模块文档与新人指南；实习期间获中期考核「优」、终期考核「S」及「部门力求上进奖」。",
+            ],
+          },
         ],
       },
     ],
@@ -435,7 +371,7 @@ export const experience: WorkEntry[] = [
 
 export const education = {
   degree: "深圳技术大学 · 物联网工程 · 本科",
-  period: "2019.9 — 2023.6",
+  period: "2019.09 — 2023.06",
 };
 
 export const nav = [

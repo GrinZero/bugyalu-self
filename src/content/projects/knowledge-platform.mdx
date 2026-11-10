@@ -1,19 +1,26 @@
 ---
-title: "企业知识源平台"
-tagline: "将来源接入、同步、检索与权限隔离组织为统一平台"
-description: "将来源接入、同步、检索与权限隔离组织为统一平台"
+title: "企业多源 RAG 与 AI 基础平台"
+tagline: "读写对称检索、HopEngine 多跳精排、CodeGraph 与私有 Skills 分发"
+description: "统一赋能公司全部核心 Agent（AskMoe、客服、HR、研发定位、QA），将 Context Recall@5 从旧架构 38% 持续跃升至 82%，Answer Faithfulness 达 0.94。"
 icon: "📚"
 kind: "internal"
-tags: ["RAG", "权限隔离", "知识同步"]
-order: 8
+period: "2026"
+accent: "amber"
+tags: ["RAG", "HopEngine", "Google Agent Search", "CodeGraph", "MCP"]
+order: 4
+featured: true
 ---
 
-## 企业知识源平台与权限隔离
+## 问题
 
-建设面向内部问答和 Agent 的知识源平台，将来源接入、同步管理、检索能力与消费应用解耦，支持用户自主添加飞书、Slack 知识源，并通过统一检索能力服务不同消费场景。
+原 RAG 引擎跨源召回率极低（接手时旧架构 `Context Recall@5` 仅 38%），且飞书、Slack、GitHub、Jira、Intercom 等多源知识孤岛、跨文档引用断裂；同时多 Agent 场景下存在检索越权风险、失效文档难清理以及代码变更影响面难评估的痛点。
 
-以调用身份持有的 Token 绑定可访问知识源集合，建立来源级权限隔离，使不同应用和调用方在各自授权范围内检索内容。飞书、Slack 知识源接入与隔离核心能力已完成上线。
+## 方案
 
-完善知识源生命周期管理，区分上游原文、同步策略、同步状态和检索投影，明确“排除未来同步”“手动删除检索投影”与“上游原文删除”的不同语义。实现未被排除的已删除投影可重新索引，处理旧内容 hash 导致重建被跳过的问题；相关删除、排除与重建能力已通过回归验证并合入主干。
+- **读写对称多源检索与多跳精排**：写路径统一摄取多源文档，引入新鲜度分层（`hot/warm/cold`）、生命周期管理与 LLM 富化（摘要、实体、潜在查询），私有 GCS 图文资产经无状态 HMAC 签名代理支持多模态检索；读路径设计 L0–L3 四级渐进降级预处理（实体识别、多语言改写、Mirror Text 假设回答段落），基于 Google Agent Search 多 Datastore 并行召回，叠加跨源 Reference 自适应多跳扩展（HopEngine）、跨 Query RRF 融合（`k=60`）、LLM Rerank 与相邻 Chunk 水合组装。
+- **权限隔离与生命周期治理**：实现调用方 Token 级知识源权限绑定、RBAC 申请流，以及区分“排除未来同步”“手动删除检索投影”与“上游原文删除”的文档重建控制。
+- **CodeGraph 代码图谱与私有 Skills 网关**：开发基于不可变 Worktree 与 SQLite A/B Generation 原子切换的 CodeGraph 代码图谱（支持符号调用链与 Open PR 增量影响面分析 MCP 工具），以及带 OAuth/RBAC 与全链路日志脱敏的私有 Agent Skills 分发网关（支持 `npx skills add/update` 一键安全安装）。
 
-推进管理端飞书文档树选择与首次同步入口，解除首次同步对历史同步状态的依赖，并联动刷新文档树、同步状态、运行记录与检索结果，完成本地验证。推进 Intercom 数据源接入，其数据库迁移与严格 TLS 连接已在测试环境验证。
+## 结果
+
+通过 REST 与 MCP **统一服务内部全部核心 Agent（AskMoe 内部问答、客服 Agent、HR Agent、研发定位 Agent、QA Agent）**；在内部 LLM-as-judge 评测中，`Context Recall@5` 由旧架构 **38%**、重构初版 **60%** 持续跃升至 **71% → 82%**，`Answer Faithfulness` 由 **0.71 提升至 0.94**。

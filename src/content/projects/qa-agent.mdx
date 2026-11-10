@@ -1,25 +1,26 @@
 ---
-title: "云端 QA Agent 与评测体系"
-tagline: "把需求分析、用例评审与执行反馈沉淀为团队可复用经验"
-description: "把需求分析、用例评审与执行反馈沉淀为团队可复用经验"
+title: "云端 QA Agent（Qasey）与三层记忆架构"
+tagline: "三层记忆、防上下文过载 Processor 流水线与 E2E 持久闭环"
+description: "公司首个云端 Agent：构建 Working / Observational / User 三层记忆与 InputProcessor 防过载流水线，将 E2E 验证从一个下午缩短至约 1 小时。"
 icon: "🧪"
 kind: "internal"
-tags: ["Mastra", "Sandbox", "Golden Dataset", "Eval"]
-order: 6
+period: "2026"
+accent: "mint"
+tags: ["Mastra", "Durable Agent", "Three-Tier Memory", "Sandbox", "Eval"]
+order: 3
+featured: true
 ---
 
-## 云端 QA Agent 与运行架构
+## 问题
 
-设计 API / Worker / Sandbox 服务器架构与沙箱执行隔离方案，推动内部 QA Agent 从 n8n 工作流向 TypeScript/Mastra 演进，落地 MoeGo 首个云端 Agent，并面向内部 QA 用户持续生产运行。
+手工编写评审用例与 E2E 验证耗时长（单次常需一个下午），QA 个人经验难以跨项目复用；且早期 n8n 工作流在长时多轮调用中面临工具定义膨胀与大体积返回（如单次 Jira / PR 达 380k+ Token），极易撑爆上下文或静默超时。
 
-围绕需求分析、用例评审和执行反馈组织 Agent 工作流，支持测试任务处理与团队经验复用，将 Agent 的运行架构、执行隔离和实际 QA 协作场景结合起来。
+## 方案
 
-## QA Agent 评测体系与团队经验闭环
+- **服务器拓扑与三层记忆体系**：设计 API / Split Orchestration Worker / Pooled Sandbox 执行隔离拓扑，推动系统向 TypeScript / Mastra Durable Agent 演进，落地公司首个云端 Agent。构建三层记忆体系——① 结构化 **Working Memory** 实时维护任务目标、覆盖边界与阻塞槽位；② **Observational Memory** 按 Token 水位自动触发轻量模型后台 **Observation 提炼与 Reflection 反思压缩**，支持跨会话分页 Recall 并严格隔离群聊共享与个人私有记忆；③ 基于 **PostgreSQL Advisory Lock + Revision 乐观锁 CAS** 实现跨会话 **User Memory**，安全沉淀长期测试偏好。
+- **防过载 InputProcessor 流水线**：组装 `ToolSearchProcessor`（Top-K 动态按需挂载外部工具）、`ToolCallFilter`（跨轮次自动裁剪历史大体积原始工具输出，仅保留精简投影）、`TokenLimiter` 及到期前优雅收尾 Processor（预留窗口强制切 `toolChoice: none` 汇总结论）。
+- **可信 E2E 持久闭环与评测治理**：建设支持 `suspend / resume` 的 E2E 持久工作流（冻结需求与 Base SHA → 隔离 Sandbox Author 编写与自检门禁 → Clean Verifier 全新工作区独立重放与录像采集 → QA 逐条审核及带反馈自动修复 → Draft PR 发布），并沉淀 Golden Dataset 与分项 Scorer 支撑回归评测。
 
-围绕内部 QA Agent 建设“需求分析—候选用例—逐条评审—修改反馈—分项评分—执行证据回流”的质量闭环，将个人 QA 经验持续沉淀为团队可复用经验，支持测试设计与 Agent 能力迭代。
+## 结果
 
-整理真实 QA 会话与执行轨迹，建设统一 Golden Dataset，并派生适配 Mastra、Datadog 的评测格式。结合逐 Case Review、修改反馈与分项 Scorer，从关键行为覆盖、禁止行为约束和执行轨迹可信度等维度组织回归评估，使评测能够定位具体用例和行为层面的问题。
-
-为评测实验建立工具调用边界：写操作采用 mock，读操作按明确分类接入；对未分类的新工具阻断实验构建或导入，避免工具扩展时意外执行真实写入。区分用于回归验证的 Golden Case 与经过审核的正式 QA 经验，保留样本来源和纳入、排除依据。
-
-Golden Dataset 与 Scorers 已合入主干。核心 QA Agent 持续服务内部 QA 用户，通过需求分析、用例评审和执行反馈推动团队经验复用；相关实践将 E2E 环节耗时从一个下午缩短至约 1 小时。
+作为公司首个云端 Agent 持续服务内部 QA 团队，彻底解决长时任务上下文过载问题，并将 **E2E 环节耗时从一个下午缩短至约 1 小时**。
